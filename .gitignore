@@ -1,0 +1,33 @@
+.DS_Store
+.build/
+dist/
+node_modules/
+plugin/lib/
+*.log
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Local art experiments and their recoverable archives are deliberately unpublished.
+/playground/
+/ds 娘.jpg
+/docs/archives/
+/docs/handoff-history/
+/docs/icon-preview/legacy-2026-10-04/
+/docs/桌宠实验室归档.md
+/docs/桌宠动画第二轮方案.md
+/docs/DS娘Godot制作交接Prompt.md
+/docs/tasks/2026-10-03-桌宠形象与动画探索.md
+
+# Private local configuration and distribution artifacts.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*.dmg
+*.zip
+*.app/
+.godot/

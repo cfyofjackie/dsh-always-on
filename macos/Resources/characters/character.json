@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "id": "a-balanced",
+  "name": "均衡 Q 版",
+  "atlas": "a-balanced.png",
+  "atlasWidth": 1122,
+  "atlasHeight": 1402,
+  "canvasSize": 208,
+  "padding": 6,
+  "states": [
+    {
+      "state": "idle",
+      "durations": [
+        2.8,
+        0.1,
+        0.1,
+        0.6
+      ],
+      "hops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "frames": [
+        {
+          "x": 39,
+          "y": 4,
+          "width": 248,
+          "height": 287
+        },
+        {
+          "x": 312,
+          "y": 6,
+          "width": 245,
+          "height": 285
+        },
+        {
+          "x": 578,
+          "y": 4,
+          "width": 240,
+          "height": 287
+        },
+        {
+          "x": 842,
+          "y": 4,
+          "width": 240,
+          "height": 287
+        }
+      ]
+    },
+    {
+      "state": "working",
+      "durations": [
+        0.22,
+        0.18,
+        0.22,
+        0.18
+      ],
+      "hops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "frames": [
+        {
+          "x": 40,
+          "y": 292,
+          "width": 264,
+          "height": 285
+        },
+        {
+          "x": 323,
+          "y": 292,
+          "width": 248,
+          "height": 285
+        },
+        {
+          "x": 584,
+          "y": 293,
+          "width": 250,
+          "height": 284
+        },
+        {
+          "x": 848,
+          "y": 292,
+          "width": 253,
+          "height": 285
+        }
+      ]
+    },
+    {
+      "state": "waiting",
+      "durations": [
+        1.8,
+        0.14,
+        0.6,
+        0.9
+      ],
+      "hops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "frames": [
+        {
+          "x": 45,
+          "y": 578,
+          "width": 255,
+          "height": 281
+        },
+        {
+          "x": 318,
+          "y": 580,
+          "width": 248,
+          "height": 279
+        },
+        {
+          "x": 582,
+          "y": 583,
+          "width": 252,
+          "height": 276
+        },
+        {
+          "x": 851,
+          "y": 583,
+          "width": 240,
+          "height": 276
+        }
+      ]
+    },
+    {
+      "state": "success",
+      "durations": [
+        0.26,
+        0.2,
+        0.24,
+        0.6
+      ],
+      "hops": [
+        0,
+        0,
+        7,
+        0
+      ],
+      "frames": [
+        {
+          "x": 39,
+          "y": 862,
+          "width": 259,
+          "height": 268
+        },
+        {
+          "x": 312,
+          "y": 863,
+          "width": 256,
+          "height": 266
+        },
+        {
+          "x": 582,
+          "y": 859,
+          "width": 249,
+          "height": 257
+        },
+        {
+          "x": 860,
+          "y": 866,
+          "width": 240,
+          "height": 264
+        }
+      ]
+    },
+    {
+      "state": "error",
+      "durations": [
+        1.8,
+        0.45,
+        0.14,
+        0.9
+      ],
+      "hops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "frames": [
+        {
+          "x": 42,
+          "y": 1131,
+          "width": 252,
+          "height": 269
+        },
+        {
+          "x": 321,
+          "y": 1131,
+          "width": 249,
+          "height": 270
+        },
+        {
+          "x": 589,
+          "y": 1131,
+          "width": 249,
+          "height": 269
+        },
+        {
+          "x": 853,
+          "y": 1131,
+          "width": 251,
+          "height": 269
+        }
+      ]
+    }
+  ]
+}
