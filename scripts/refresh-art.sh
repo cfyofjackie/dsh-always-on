@@ -10,6 +10,7 @@ elif [[ $# -gt 0 ]]; then
     exit 1
 fi
 node "$task_root/scripts/sync-pet-art.mjs"
+node "$task_root/scripts/sync-life-art.mjs"
 # Export with the existing Swift renderer without starting the UI or DSH integration.
 mkdir -p "$task_root/dist"
 task_art=$(mktemp -d "$task_root/dist/art-export.XXXXXX")

@@ -317,3 +317,91 @@ extension SessionStoreTests {
         XCTAssertEqual(BubbleStyle.saved("glass"), .glass)
     }
 }
+
+final class PetLifeAnimationTests: XCTestCase {
+    private func manifest() throws -> LifeManifest {
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Resources/characters")
+        return try JSONDecoder().decode(LifeManifest.self,from: Data(contentsOf: directory.appendingPathComponent("life.json")))
+    }
+    func testApprovedTimingsSourceOrderAndRecoveredRegistration() throws {
+        let data = try manifest(); try data.validate()
+        let rice = try XCTUnwrap(data.motion(for: .rice)),toy = try XCTUnwrap(data.motion(for: .toy))
+        XCTAssertEqual(rice.duration,5.04,accuracy: 0.000001); XCTAssertEqual(rice.cycle,8,accuracy: 0.000001)
+        XCTAssertEqual(rice.durations[15],0.18); XCTAssertEqual(rice.durations[17],0.18)
+        XCTAssertEqual(toy.duration,4.13,accuracy: 0.000001); XCTAssertEqual(toy.cycle,6.13,accuracy: 0.000001)
+        XCTAssertEqual(toy.frames.map(\.sourcePose),Array(1...24).filter {$0 != 14})
+        let f16 = try XCTUnwrap(toy.frames.first {$0.sourcePose == 16}),f17 = try XCTUnwrap(toy.frames.first {$0.sourcePose == 17})
+        XCTAssertEqual(f16.file,"life-toy-16.png"); XCTAssertEqual(f16.anchorX,126); XCTAssertEqual(f16.footY,227)
+        XCTAssertEqual(f17.file,"life-toy-17.png"); XCTAssertEqual(f17.anchorX,163); XCTAssertEqual(f17.footY,228)
+        for motion in data.clips {
+            var elapsed = 0.0
+            for (index,hold) in motion.durations.enumerated() {
+                XCTAssertEqual(motion.frameIndex(at: elapsed+hold/2),index)
+                XCTAssertEqual(motion.secondsUntilNextFrame(at: elapsed+hold/2),hold/2,accuracy: 0.000001)
+                elapsed += hold
+            }
+            XCTAssertEqual(motion.frameIndex(at: motion.duration+motion.rest/2),motion.frames.count-1)
+            XCTAssertEqual(motion.frameIndex(at: motion.cycle),0)
+            XCTAssertEqual(motion.frameIndex(at: motion.cycle,looping: false),motion.frames.count-1)
+            XCTAssertEqual(motion.frameIndex(at: 999,looping: false),motion.frames.count-1)
+        }
+    }
+    func testIdleWaitPlaysOneRoundThenWaitsAgainForBothSettings() throws {
+        let data = try manifest()
+        for delay in PetIdleDelay.allCases {
+            for animation in [PetAnimation.rice,.toy] {
+                var player = PetLoafPlayback()
+                let duration = try XCTUnwrap(data.motion(for: animation)).cycle
+                func advance(_ now: Double,_ eligible: Bool = true) {
+                    player.advance(eligible: eligible,delay: delay.seconds,now: now,choose: {animation},cycle: {_ in duration})
+                }
+                advance(100); advance(100+delay.seconds-0.01); XCTAssertNil(player.animation)
+                advance(100+delay.seconds); XCTAssertEqual(player.animation,animation)
+                advance(100+delay.seconds+duration-0.01); XCTAssertEqual(player.animation,animation)
+                let end = 100+delay.seconds+duration
+                advance(end); XCTAssertNil(player.animation)
+                advance(end+delay.seconds-0.01); XCTAssertNil(player.animation)
+                advance(end+delay.seconds); XCTAssertEqual(player.animation,animation)
+                advance(end+delay.seconds+0.1,false); XCTAssertNil(player.animation)
+                advance(end+50); XCTAssertNil(player.animation)
+                advance(end+50+delay.seconds); XCTAssertEqual(player.animation,animation)
+            }
+        }
+    }
+    func testNonIdlePresentationInterruptsAndResetsWait() {
+        var player = PetLoafPlayback()
+        player.advance(eligible: true,delay: 5,now: 0,choose: {.rice},cycle: {_ in 8})
+        player.advance(eligible: true,delay: 5,now: 5,choose: {.rice},cycle: {_ in 8})
+        XCTAssertEqual(player.animation,.rice)
+        player.advance(eligible: false,delay: 5,now: 6,choose: {.toy},cycle: {_ in 6.13})
+        XCTAssertNil(player.animation)
+        player.advance(eligible: true,delay: 5,now: 100,choose: {.toy},cycle: {_ in 6.13})
+        player.advance(eligible: true,delay: 5,now: 104.99,choose: {.toy},cycle: {_ in 6.13})
+        XCTAssertNil(player.animation)
+        player.advance(eligible: true,delay: 5,now: 105,choose: {.toy},cycle: {_ in 6.13})
+        XCTAssertEqual(player.animation,.toy)
+        XCTAssertEqual(PetIdleDelay.saved(nil),.tenSeconds)
+        XCTAssertEqual(PetIdleDelay.saved("invalid"),.tenSeconds)
+        XCTAssertEqual(PetIdleDelay.saved("fiveSeconds"),.fiveSeconds)
+    }
+    func testLifePreviewPauseResumeRestartAndLiveTaskRecovery() {
+        var preview = AnimationPreview(),clock = CharacterPlaybackClock()
+        preview.begin(state: .working); preview.select(PetAnimation.rice)
+        clock.configure(animation: preview.selectedAnimation,playing: true,now: 10,revision: preview.revision)
+        preview.setPlaying(false)
+        clock.configure(animation: .rice,playing: false,now: 10.4,revision: preview.revision)
+        XCTAssertEqual(clock.elapsedTime(at: 100),0.4,accuracy: 0.000001)
+        preview.setPlaying(true)
+        clock.configure(animation: .rice,playing: true,now: 100,revision: preview.revision)
+        XCTAssertEqual(clock.elapsedTime(at: 100.1),0.5,accuracy: 0.000001)
+        preview.restart()
+        clock.configure(animation: .rice,playing: true,now: 101,revision: preview.revision)
+        XCTAssertEqual(clock.elapsedTime(at: 101),0)
+        preview.select(PetAnimation.toy)
+        clock.configure(animation: .toy,playing: false,now: 102,revision: preview.revision)
+        XCTAssertEqual(clock.elapsedTime(at: 200),0)
+        preview.end(); XCTAssertEqual(preview.displayedState(live: .waiting),.waiting)
+        XCTAssertFalse(AnimationPreview().enabled)
+    }
+}

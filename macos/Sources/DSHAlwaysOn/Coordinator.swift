@@ -40,6 +40,7 @@ struct Endpoint: Codable {
             syncBubble(); updatePresentation(); scheduleFeedbackExpiration()
         }
     }
+    @Published var petIdleDelay: PetIdleDelay { didSet { preferences.set(petIdleDelay.rawValue, forKey: "petIdleDelay") } }
     @Published var bubbleStyle: BubbleStyle { didSet { preferences.set(bubbleStyle.rawValue, forKey: "bubbleStyle") } }
     @Published var showInFullScreen: Bool { didSet { preferences.set(showInFullScreen, forKey: "showInFullScreen"); petController?.update() } }
     @Published var bubblePreviewKind: BubblePreviewKind = .success { didSet { petController?.update() } }
@@ -167,6 +168,7 @@ struct Endpoint: Codable {
         mode = preferences.string(forKey: "notificationMode").flatMap(NotificationMode.init(rawValue:))
         alwaysOnTop = preferences.object(forKey: "alwaysOnTop") as? Bool ?? true
         reminderRetention = ReminderRetention.saved(preferences.string(forKey: "reminderRetention"))
+        petIdleDelay = PetIdleDelay.saved(preferences.string(forKey: "petIdleDelay"))
         bubbleStyle = BubbleStyle.saved(preferences.string(forKey: "bubbleStyle"))
         showInFullScreen = preferences.bool(forKey: "showInFullScreen")
         dismissedFeedbackIDs = Set(preferences.stringArray(forKey: "dismissedFeedbackIDs") ?? [])
@@ -218,6 +220,8 @@ struct Endpoint: Codable {
         petController?.update()
     }
     func selectPreviewState(_ state: TaskState) { animationPreview.select(state) }
+    func selectPreviewAnimation(_ animation: PetAnimation) { animationPreview.select(animation) }
+    func restartPreviewAnimation() { animationPreview.restart() }
     func setPreviewPlaying(_ playing: Bool) { animationPreview.setPlaying(playing) }
     var pendingSessions: [SessionRecord] { store.orderedSessions.filter { $0.state == .waiting || !store.unreadIDs(sessionId: $0.id).isEmpty } }
     private var patchURL: URL { URL(fileURLWithPath: dshHome).appendingPathComponent("profiles/desktop/cordis.patch.yml") }

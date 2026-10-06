@@ -5,7 +5,7 @@
 1. 用 Xcode 打开 `macos/DSHAlwaysOn.xcodeproj`。
 2. 顶部方案选 **DSH Always On**，运行设备选 **My Mac**。
 3. 点击左上角 **Run ▶**，或按 `⌘R`。Debug 启动会显示会话与设置，方便调试。
-4. 按 `⌘U` 运行已有 38 项核心测试（含角色素材 / 节奏、提醒期限、预览与查看边界检查）；测试无需运行模型任务或启用 DSH 集成。
+4. 按 `⌘U` 运行已有 42 项核心测试（含角色素材 / 节奏、提醒期限、预览与查看边界检查）；测试无需运行模型任务或启用 DSH 集成。
 
 列表里还可能看到没有空格的 `DSHAlwaysOn`，它是原 Swift Package 的可执行方案。日常 App 开发使用 **DSH Always On**。
 
@@ -29,11 +29,15 @@ Xcode 的构建脚本隔离保持开启，输入和输出路径逐项声明。�
 
 角色形象与动作统一在长期保留的 `playground/pet-design/` 实验室调整。当前选择由 `production.json` 指定为 A 均衡 Q 版；图集在 `assets/a-balanced.png`，分帧矩形在 `assets/atlas-data.js`，五状态节奏与小跳跃在 `assets/motion-data.js`。原参考图片、B / C 对照及替换前的简易素材均保留。
 
-调整后运行 `bash scripts/refresh-art.sh`：先从实验室同步图集与动作清单，再用同一原生绘制逻辑导出五张静态回退 PNG，最后在 Xcode 构建。直接修改 Resources 会在同步时被源素材更新。默认不更新 App 图标；显式 `--icons` 才刷新图标。原简易 CharacterView 绘图归档在实验室 `archive/`，不参与生产渲染。
+调整后运行 `bash scripts/refresh-art.sh`：先从实验室同步图集与动作清单及认可生活动作，再用同一原生绘制逻辑导出五张静态回退 PNG，最后在 Xcode 构建。直接修改 Resources 会在同步时被源素材更新。默认不更新 App 图标；显式 `--icons` 才刷新图标。原简易 CharacterView 绘图归档在实验室 `archive/`，不参与生产渲染。
+
+生活动作由 `scripts/sync-life-art.mjs` 同步到 `Resources/characters/life.json` 与4张PNG；吃饭24姿势 / 5.04秒＋2.96秒收尾，扔小鲸鱼23姿势 / 4.13秒＋2秒收尾。保留原水平 / 脚底登记，浮空道具按全动作范围缩放以适应原生画布，不重新生成图片。运行素材独立保存，公开克隆无需实验室；待机5 / 10秒设置与提醒停留时间分开。
 
 App 使用缓存逐帧 PNG 播放，208 × 208 pt 角色画布与 208 × 240 pt 窗口。切到 Native 或系统睡眠时停止动作；系统减少动态效果使用静态帧。成功 / 失败仍由原事件规则控制短暂反馈，等待不会因动画循环解除。
 
 Debug 构建可带 `--preview-character` 启动独立原生五状态窗口，复用真实资源 / 播放器但不创建 Coordinator、不读会话或启动 DSH 连接。`--validate-character` 仅校验图集和透明点击区域，不启动正常 App。
+
+Debug 的 `--validate-life-preview <输出目录>` 使用独立UserDefaults与内存Coordinator检查七动作、暂停 / 从头 / 恢复、间隔保存及提醒优先，并导出47张原生帧和设置离屏图，不接入真实任务。自动摸鱼一轮结束后重新计时，测试模式循环，二者复用同一播放器。
 
 ## 本机签名与打包
 

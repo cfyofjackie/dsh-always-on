@@ -67,22 +67,32 @@ struct MainView: View {
                     }
                 }.padding(5)
             }
+            GroupBox("待机小生活") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("摸鱼开始时间", selection: $model.petIdleDelay) {
+                        ForEach(PetIdleDelay.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }.pickerStyle(.segmented).disabled(model.mode != .pet)
+                    Text("待机后随机吃饭或扔小鲸鱼，演完一轮再回待机。你继续操作电脑也可以触发；工作、等待和提醒期间不摸鱼。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.padding(5)
+            }
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("动画测试", isOn: Binding(get: { model.animationPreview.enabled }, set: model.setAnimationPreview))
                         .disabled(model.mode != .pet)
                     if model.animationPreview.enabled {
                         HStack(spacing: 16) {
-                            CharacterView(state: model.animationPreview.selectedState, animated: model.animationPreview.playing)
+                            CharacterView(state: model.animationPreview.selectedState, animated: model.animationPreview.playing, animation: model.animationPreview.selectedAnimation, revision: model.animationPreview.revision)
                                 .scaleEffect(0.62).frame(width: 130, height: 130)
                                 .background(Color.blue.opacity(0.045), in: RoundedRectangle(cornerRadius: 18))
                             VStack(alignment: .leading, spacing: 12) {
-                                Picker("预览状态", selection: Binding(get: { model.animationPreview.selectedState }, set: model.selectPreviewState)) {
-                                    ForEach(TaskState.allCases, id: \.self) { state in Text(state.previewLabel).tag(state) }
-                                }.pickerStyle(.segmented)
+                                Picker("预览动作", selection: Binding(get: { model.animationPreview.selectedAnimation }, set: model.selectPreviewAnimation)) {
+                                    ForEach(PetAnimation.allCases, id: \.self) { Text($0.label).tag($0) }
+                                }.pickerStyle(.menu)
                                 HStack {
                                     Toggle("播放动作", isOn: Binding(get: { model.animationPreview.playing }, set: model.setPreviewPlaying))
                                     Spacer()
+                                    Button("从头播放") { model.restartPreviewAnimation() }
                                     Button("恢复真实状态") { model.setAnimationPreview(false) }
                                 }
                                 Text("动画测试中：所选动作持续展示，方便截图。新任务提醒到来时会自动恢复真实状态。")
@@ -90,7 +100,7 @@ struct MainView: View {
                             }
                         }
                     } else {
-                        Text("预览五种动作并暂停截图；测试时长与上方真实提醒的停留时间分开。")
+                        Text("预览五种状态、吃饭与扔小鲸鱼，并暂停截图；测试时长与上方真实提醒的停留时间分开。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }.padding(5).frame(maxWidth: .infinity, alignment: .leading)
@@ -145,13 +155,38 @@ struct MainView: View {
 
 struct PetView: View {
     @ObservedObject var model: Coordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var awake = true
+    @State private var loaf = PetLoafPlayback()
+    private var eligible: Bool {
+        model.mode == .pet && model.petSpaceVisible && awake && !reduceMotion &&
+        !model.animationPreview.enabled && !model.bubblePreviewEnabled && model.taskState == .idle &&
+        model.visibleBubble == nil && LifeArtwork.shared.manifest != nil
+    }
+    private var selected: PetAnimation {
+        if model.animationPreview.enabled { return model.animationPreview.selectedAnimation }
+        return eligible ? loaf.animation ?? PetAnimation(state: model.displayedTaskState) : PetAnimation(state: model.displayedTaskState)
+    }
+    private struct IdleConfiguration: Hashable { var eligible: Bool; var delay: String }
     var body: some View {
         VStack(spacing: 0) {
-            CharacterView(state: model.displayedTaskState, animated: model.mode == .pet && model.petSpaceVisible && awake && (!model.animationPreview.enabled || model.animationPreview.playing))
-            Text(model.bubblePreviewEnabled ? "气泡测试" : model.animationPreview.enabled ? "\(model.displayedTaskState.label) · 动画测试" : model.connected ? model.taskState.label : "未连接 · 休息中").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
+            CharacterView(state: model.displayedTaskState,
+                animated: model.mode == .pet && model.petSpaceVisible && awake && (!model.animationPreview.enabled || model.animationPreview.playing),
+                animation: selected, revision: model.animationPreview.enabled ? model.animationPreview.revision : 0, looping: model.animationPreview.enabled || !selected.isLife)
+            Text(model.bubblePreviewEnabled ? "气泡测试" : model.animationPreview.enabled ? "\(selected.label) · 动画测试" :
+                 selected.isLife ? selected.label : model.connected ? model.taskState.label : "未连接 · 休息中")
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
                 .padding(.horizontal, 9).padding(.vertical, 4).background(.black.opacity(0.50), in: Capsule())
         }.frame(width: CharacterArtwork.size, height: 240, alignment: .top)
+            .task(id: IdleConfiguration(eligible: eligible,delay: model.petIdleDelay.rawValue)) {
+                loaf.reset()
+                guard eligible else { return }
+                while !Task.isCancelled {
+                    loaf.advance(eligible: eligible,delay: model.petIdleDelay.seconds,now: ProcessInfo.processInfo.systemUptime,
+                        choose: { Bool.random() ? .rice : .toy },cycle: { LifeArtwork.shared.manifest?.motion(for: $0)?.cycle ?? 0 })
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                }
+            }
             .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in awake = false }
             .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in awake = true }
             .help("点击查看任务；拖动调整位置；右键打开菜单。")

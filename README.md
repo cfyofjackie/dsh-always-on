@@ -23,12 +23,12 @@
 - **桌面伙伴**：DS 娘五种基础状态、气泡、拖动、边缘吸附与位置保存。
 - **会话跳转**：点击气泡、通知或列表，回到对应 DSH session；回答 / 批准 / 审阅仍在 DSH 中完成。
 - **提醒时间**：10 秒、5 秒或一直保留直到打开。
-- **外观与测试**：两款气泡、五类内容预览、五状态动作播放 / 暂停。
+- **外观与测试**：两款气泡、五类内容预览，五状态＋吃饭 / 扔小鲸鱼测试、播放 / 暂停 / 从头，以及待机5 / 10秒随机摸鱼。
 - **智能提醒与全屏选项**：相关代码已接入，真实 DSH 前台查看、视频全屏和多显示器仍待完整验收。
 
 <p align="center"><img src="docs/validation/smart-reminders-2026-10-04/chibi-planReview-light.png" width="300" alt="Q 版计划审阅气泡"> <img src="docs/validation/smart-reminders-2026-10-04/glass-success-dark.png" width="300" alt="半透明完成气泡"></p>
 
-气泡截图是组件渲染样例。当前形象使用五状态 / 20 帧，后续动画正在独立迭代；旧实验室、归档和 Godot 工作素材不包含在公开仓库中。运行所需的已选素材位于 `macos/Resources/characters/`。
+气泡截图是组件渲染样例。当前形象使用五状态 / 20 帧，并新增认可的吃饭24姿势与扔小鲸鱼23姿势，待机后随机演一轮；旧实验室、归档和 Godot 工作素材不包含在公开仓库中。运行所需的已选素材位于 `macos/Resources/characters/`。
 
 ## 当前边界
 
@@ -61,7 +61,7 @@ npm --prefix plugin run check
 npm --prefix plugin test
 ```
 
-当前 38 项 Swift 核心测试、31 项 Node 测试；Xcode 与 Swift Package 运行同一套核心检查。
+当前 42 项 Swift 核心测试、31 项 Node 测试；Xcode 与 Swift Package 运行同一套核心检查。
 
 ## 项目结构
 

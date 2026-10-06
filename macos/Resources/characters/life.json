@@ -1,0 +1,540 @@
+{
+  "schemaVersion": 1,
+  "clips": [
+    {
+      "animation": "rice",
+      "normalHeight": 257,
+      "durations": [
+        0.4,
+        0.15,
+        0.15,
+        0.18,
+        0.18,
+        0.24,
+        0.14,
+        0.16,
+        0.14,
+        0.16,
+        0.12,
+        0.18,
+        0.18,
+        0.26,
+        0.3,
+        0.18,
+        0.24,
+        0.18,
+        0.14,
+        0.14,
+        0.22,
+        0.2,
+        0.34,
+        0.46
+      ],
+      "rest": 2.96,
+      "frames": [
+        {
+          "file": "life-rice.png",
+          "sourcePose": 1,
+          "x": 57,
+          "y": 4,
+          "width": 233,
+          "height": 253,
+          "anchorX": 119,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 2,
+          "x": 307,
+          "y": 4,
+          "width": 224,
+          "height": 253,
+          "anchorX": 116,
+          "footY": 253
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 3,
+          "x": 542,
+          "y": 3,
+          "width": 221,
+          "height": 253,
+          "anchorX": 108,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 4,
+          "x": 778,
+          "y": 4,
+          "width": 224,
+          "height": 253,
+          "anchorX": 107,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 5,
+          "x": 1021,
+          "y": 4,
+          "width": 231,
+          "height": 253,
+          "anchorX": 108,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 6,
+          "x": 1264,
+          "y": 3,
+          "width": 230,
+          "height": 254,
+          "anchorX": 110,
+          "footY": 253
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 7,
+          "x": 61,
+          "y": 258,
+          "width": 235,
+          "height": 251,
+          "anchorX": 118.5,
+          "footY": 251
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 8,
+          "x": 313,
+          "y": 260,
+          "width": 230,
+          "height": 249,
+          "anchorX": 110,
+          "footY": 249
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 9,
+          "x": 550,
+          "y": 258,
+          "width": 228,
+          "height": 251,
+          "anchorX": 109,
+          "footY": 251
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 10,
+          "x": 788,
+          "y": 259,
+          "width": 231,
+          "height": 250,
+          "anchorX": 111,
+          "footY": 249
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 11,
+          "x": 1026,
+          "y": 257,
+          "width": 238,
+          "height": 252,
+          "anchorX": 115,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 12,
+          "x": 1269,
+          "y": 257,
+          "width": 227,
+          "height": 252,
+          "anchorX": 115,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 13,
+          "x": 54,
+          "y": 511,
+          "width": 242,
+          "height": 250,
+          "anchorX": 116,
+          "footY": 250
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 14,
+          "x": 305,
+          "y": 512,
+          "width": 237,
+          "height": 249,
+          "anchorX": 113,
+          "footY": 249
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 15,
+          "x": 546,
+          "y": 512,
+          "width": 233,
+          "height": 249,
+          "anchorX": 108,
+          "footY": 249
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 16,
+          "x": 785,
+          "y": 512,
+          "width": 236,
+          "height": 249,
+          "anchorX": 112,
+          "footY": 249
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 17,
+          "x": 1032,
+          "y": 511,
+          "width": 231,
+          "height": 250,
+          "anchorX": 108,
+          "footY": 250
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 18,
+          "x": 1272,
+          "y": 509,
+          "width": 231,
+          "height": 252,
+          "anchorX": 109,
+          "footY": 252
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 19,
+          "x": 50,
+          "y": 761,
+          "width": 245,
+          "height": 258,
+          "anchorX": 119,
+          "footY": 257
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 20,
+          "x": 301,
+          "y": 761,
+          "width": 241,
+          "height": 258,
+          "anchorX": 111,
+          "footY": 257
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 21,
+          "x": 547,
+          "y": 761,
+          "width": 234,
+          "height": 258,
+          "anchorX": 108,
+          "footY": 257
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 22,
+          "x": 787,
+          "y": 762,
+          "width": 236,
+          "height": 257,
+          "anchorX": 110,
+          "footY": 256
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 23,
+          "x": 1030,
+          "y": 761,
+          "width": 233,
+          "height": 257,
+          "anchorX": 113,
+          "footY": 256
+        },
+        {
+          "file": "life-rice.png",
+          "sourcePose": 24,
+          "x": 1266,
+          "y": 761,
+          "width": 233,
+          "height": 257,
+          "anchorX": 111,
+          "footY": 256
+        }
+      ]
+    },
+    {
+      "animation": "toy",
+      "normalHeight": 284,
+      "durations": [
+        0.3,
+        0.16,
+        0.14,
+        0.14,
+        0.14,
+        0.22,
+        0.08,
+        0.1,
+        0.14,
+        0.14,
+        0.1,
+        0.08,
+        0.07,
+        0.08,
+        0.1,
+        0.16,
+        0.28,
+        0.32,
+        0.3,
+        0.25,
+        0.25,
+        0.18,
+        0.4
+      ],
+      "rest": 2,
+      "frames": [
+        {
+          "file": "life-toy.png",
+          "sourcePose": 1,
+          "x": 38,
+          "y": 11,
+          "width": 230,
+          "height": 235,
+          "anchorX": 112,
+          "footY": 234
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 2,
+          "x": 296,
+          "y": 10,
+          "width": 227,
+          "height": 239,
+          "anchorX": 114,
+          "footY": 238
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 3,
+          "x": 541,
+          "y": 9,
+          "width": 230,
+          "height": 240,
+          "anchorX": 111,
+          "footY": 239
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 4,
+          "x": 786,
+          "y": 10,
+          "width": 225,
+          "height": 239,
+          "anchorX": 99,
+          "footY": 238
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 5,
+          "x": 1033,
+          "y": 8,
+          "width": 230,
+          "height": 241,
+          "anchorX": 114,
+          "footY": 240
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 6,
+          "x": 1295,
+          "y": 11,
+          "width": 216,
+          "height": 238,
+          "anchorX": 106,
+          "footY": 237
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 7,
+          "x": 33,
+          "y": 257,
+          "width": 230,
+          "height": 280,
+          "anchorX": 115,
+          "footY": 279
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 8,
+          "x": 289,
+          "y": 259,
+          "width": 227,
+          "height": 279,
+          "anchorX": 102,
+          "footY": 278
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 9,
+          "x": 539,
+          "y": 256,
+          "width": 229,
+          "height": 283,
+          "anchorX": 100,
+          "footY": 282
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 10,
+          "x": 790,
+          "y": 257,
+          "width": 229,
+          "height": 285,
+          "anchorX": 102,
+          "footY": 284
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 11,
+          "x": 1044,
+          "y": 259,
+          "width": 229,
+          "height": 284,
+          "anchorX": 101,
+          "footY": 283
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 12,
+          "x": 1297,
+          "y": 267,
+          "width": 222,
+          "height": 277,
+          "anchorX": 104,
+          "footY": 276
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 13,
+          "x": 24,
+          "y": 550,
+          "width": 229,
+          "height": 224,
+          "anchorX": 125,
+          "footY": 223
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 15,
+          "x": 534,
+          "y": 556,
+          "width": 243,
+          "height": 218,
+          "anchorX": 125,
+          "footY": 217
+        },
+        {
+          "file": "life-toy-16.png",
+          "sourcePose": 16,
+          "x": 0,
+          "y": 0,
+          "width": 292,
+          "height": 231,
+          "anchorX": 126,
+          "footY": 227
+        },
+        {
+          "file": "life-toy-17.png",
+          "sourcePose": 17,
+          "x": 0,
+          "y": 0,
+          "width": 288,
+          "height": 231,
+          "anchorX": 163,
+          "footY": 228
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 18,
+          "x": 1310,
+          "y": 556,
+          "width": 214,
+          "height": 217,
+          "anchorX": 110,
+          "footY": 216
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 19,
+          "x": 41,
+          "y": 790,
+          "width": 233,
+          "height": 225,
+          "anchorX": 105,
+          "footY": 224
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 20,
+          "x": 296,
+          "y": 784,
+          "width": 229,
+          "height": 231,
+          "anchorX": 110,
+          "footY": 230
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 21,
+          "x": 548,
+          "y": 782,
+          "width": 228,
+          "height": 234,
+          "anchorX": 110,
+          "footY": 233
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 22,
+          "x": 798,
+          "y": 784,
+          "width": 230,
+          "height": 233,
+          "anchorX": 109,
+          "footY": 232
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 23,
+          "x": 1054,
+          "y": 781,
+          "width": 225,
+          "height": 237,
+          "anchorX": 112,
+          "footY": 236
+        },
+        {
+          "file": "life-toy.png",
+          "sourcePose": 24,
+          "x": 1305,
+          "y": 783,
+          "width": 219,
+          "height": 234,
+          "anchorX": 115,
+          "footY": 233
+        }
+      ]
+    }
+  ]
+}

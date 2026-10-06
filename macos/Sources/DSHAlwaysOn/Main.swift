@@ -27,6 +27,12 @@ import CompanionCore
             return
         }
         #if DEBUG
+        if let index = CommandLine.arguments.firstIndex(of: "--validate-life-preview"), CommandLine.arguments.count > index + 1 {
+            _ = NSApplication.shared
+            do { try LifePreviewValidation.run(to: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)) }
+            catch { fputs("Life preview validation failed: \(error)\n", stderr); exit(EXIT_FAILURE) }
+            return
+        }
         if let index = CommandLine.arguments.firstIndex(of: "--validate-reminder-preview"), CommandLine.arguments.count > index + 1 {
             _ = NSApplication.shared
             do { try ReminderPreviewValidation.run(to: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)) }
@@ -56,6 +62,53 @@ import CompanionCore
 }
 
 #if DEBUG
+@MainActor enum LifePreviewValidation {
+    static func run(to directory: URL) throws {
+        let suite = "DSHAlwaysOn.LifeValidation.\(UUID().uuidString)", preferences = UserDefaults(suiteName: suite)!
+        defer { preferences.removePersistentDomain(forName: suite) }
+        preferences.set("pet",forKey: "notificationMode")
+        let model = Coordinator(preferences: preferences,previewOnly: true)
+        defer { model.stop() }
+        func check(_ value: Bool,_ reason: String) throws { if !value { throw AppFailure.message(reason) } }
+        try check(model.petIdleDelay == .tenSeconds,"默认摸鱼间隔错误")
+        model.petIdleDelay = .fiveSeconds
+        let restored = Coordinator(preferences: preferences,previewOnly: true)
+        defer { restored.stop() }
+        try check(restored.petIdleDelay == .fiveSeconds && !restored.animationPreview.enabled,"设置恢复错误")
+        let before = model.store.unreadCount
+        model.setAnimationPreview(true)
+        for animation in PetAnimation.allCases {
+            model.selectPreviewAnimation(animation)
+            model.setPreviewPlaying(false)
+            try check(model.animationPreview.selectedAnimation == animation && !model.animationPreview.playing,"测试选择 / 暂停错误")
+            let revision = model.animationPreview.revision
+            model.restartPreviewAnimation()
+            try check(model.animationPreview.revision > revision && model.animationPreview.playing,"从头播放错误")
+            try check(model.store.unreadCount == before && model.store.sessions.isEmpty,"动画测试产生任务")
+        }
+        model.setAnimationPreview(false)
+        try check(model.displayedTaskState == model.taskState,"未恢复真实状态")
+        model.setAnimationPreview(true); model.selectPreviewAnimation(.rice)
+        model.previewRetention(state: .waiting,session: "life-test")
+        try check(!model.animationPreview.enabled && model.displayedTaskState == .waiting,"真实提醒未优先")
+        try FileManager.default.createDirectory(at: directory,withIntermediateDirectories: true)
+        try LifeArtwork.shared.export(to: directory)
+        for animation in [PetAnimation.rice,.toy] {
+            model.setAnimationPreview(true); model.selectPreviewAnimation(animation); model.setPreviewPlaying(false)
+            let host = NSHostingView(rootView: MainView(model: model).background(Color.white).environment(\.colorScheme, .light))
+            let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 760,height: 1100),styleMask: [.borderless],backing: .buffered,defer: false)
+            window.isReleasedWhenClosed = false; window.contentView = host
+            host.frame = NSRect(x: 0,y: 0,width: 760,height: 1100); host.layoutSubtreeIfNeeded()
+            guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw AppFailure.message("设置预览导出失败") }
+            host.cacheDisplay(in: host.bounds,to: bitmap)
+            guard let png = bitmap.representation(using: .png,properties: [:]) else { throw AppFailure.message("设置预览编码失败") }
+            try png.write(to: directory.appendingPathComponent("settings-\(animation.rawValue).png"))
+            window.close()
+        }
+        print("Seven preview actions, pause/restart/recovery, saved delay, real reminder priority and 47 native frames: passed")
+    }
+}
+
 @MainActor enum ReminderPreviewValidation {
     static func run(to directory: URL) throws {
         let suite = "DSHAlwaysOn.Validation.\(UUID().uuidString)", preferences = UserDefaults(suiteName: suite)!
