@@ -347,10 +347,36 @@ final class PetLifeAnimationTests: XCTestCase {
             XCTAssertEqual(motion.frameIndex(at: 999,looping: false),motion.frames.count-1)
         }
     }
+    func testApprovedHeadPatAndWhalePatTimingsAndRecoveredAssets() throws {
+        let data = try manifest(); try data.validate()
+        let pet = try XCTUnwrap(data.motion(for: .pet)), whale = try XCTUnwrap(data.motion(for: .whale))
+        XCTAssertEqual(PetAnimation.allCases.count,9)
+        XCTAssertEqual(Set(PetAnimation.lifeAnimations),Set([.rice,.toy,.pet,.whale]))
+        XCTAssertEqual(pet.durations,[0.12,0.16,0.32,0.25,0.38,0.22,0.3,0.45])
+        XCTAssertEqual(pet.duration,2.2,accuracy: 0.000001); XCTAssertEqual(pet.rest,2)
+        XCTAssertEqual(whale.duration,5.4,accuracy: 0.000001); XCTAssertEqual(whale.rest,2)
+        XCTAssertEqual(pet.frames.map(\.sourcePose),Array(1...8))
+        XCTAssertEqual(whale.frames.map(\.sourcePose),Array(1...24))
+        for motion in [pet,whale] {
+            for (i,f) in motion.frames.enumerated() {
+                XCTAssertEqual(f.file,String(format: "life-%@-%02d.png",motion.animation.rawValue,i+1))
+                XCTAssertEqual(f.x,0); XCTAssertEqual(f.y,0)
+            }
+        }
+    }
+    func testManifestRejectsMissingNewMotionAndInvalidHeadPatPose() throws {
+        var data = try manifest()
+        data.clips.removeAll { $0.animation == .whale }
+        XCTAssertThrowsError(try data.validate())
+        data = try manifest()
+        let index = try XCTUnwrap(data.clips.firstIndex { $0.animation == .pet })
+        data.clips[index].frames[0].sourcePose = 9
+        XCTAssertThrowsError(try data.validate())
+    }
     func testIdleWaitPlaysOneRoundThenWaitsAgainForBothSettings() throws {
         let data = try manifest()
         for delay in PetIdleDelay.allCases {
-            for animation in [PetAnimation.rice,.toy] {
+            for animation in PetAnimation.lifeAnimations {
                 var player = PetLoafPlayback()
                 let duration = try XCTUnwrap(data.motion(for: animation)).cycle
                 func advance(_ now: Double,_ eligible: Bool = true) {

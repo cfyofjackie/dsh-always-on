@@ -72,7 +72,7 @@ struct MainView: View {
                     Picker("摸鱼开始时间", selection: $model.petIdleDelay) {
                         ForEach(PetIdleDelay.allCases, id: \.self) { Text($0.label).tag($0) }
                     }.pickerStyle(.segmented).disabled(model.mode != .pet)
-                    Text("待机后随机吃饭或扔小鲸鱼，演完一轮再回待机。你继续操作电脑也可以触发；工作、等待和提醒期间不摸鱼。")
+                    Text("待机后随机吃饭、扔小鲸鱼、摸头开心或摸小鲸鱼，演完一轮再回待机。你继续操作电脑也可以触发；工作、等待和提醒期间不摸鱼。")
                         .font(.caption).foregroundStyle(.secondary)
                 }.padding(5)
             }
@@ -100,7 +100,7 @@ struct MainView: View {
                             }
                         }
                     } else {
-                        Text("预览五种状态、吃饭与扔小鲸鱼，并暂停截图；测试时长与上方真实提醒的停留时间分开。")
+                        Text("预览五种状态和四种小生活动作，并暂停截图；测试时长与上方真实提醒的停留时间分开。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }.padding(5).frame(maxWidth: .infinity, alignment: .leading)
@@ -183,7 +183,7 @@ struct PetView: View {
                 guard eligible else { return }
                 while !Task.isCancelled {
                     loaf.advance(eligible: eligible,delay: model.petIdleDelay.seconds,now: ProcessInfo.processInfo.systemUptime,
-                        choose: { Bool.random() ? .rice : .toy },cycle: { LifeArtwork.shared.manifest?.motion(for: $0)?.cycle ?? 0 })
+                        choose: { PetAnimation.lifeAnimations.randomElement()! },cycle: { LifeArtwork.shared.manifest?.motion(for: $0)?.cycle ?? 0 })
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
                 }
             }

@@ -535,6 +535,376 @@
           "footY": 233
         }
       ]
+    },
+    {
+      "animation": "pet",
+      "normalHeight": 328,
+      "durations": [
+        0.12,
+        0.16,
+        0.32,
+        0.25,
+        0.38,
+        0.22,
+        0.3,
+        0.45
+      ],
+      "rest": 2,
+      "frames": [
+        {
+          "file": "life-pet-01.png",
+          "sourcePose": 1,
+          "x": 0,
+          "y": 0,
+          "width": 284,
+          "height": 328,
+          "anchorX": 130,
+          "footY": 324
+        },
+        {
+          "file": "life-pet-02.png",
+          "sourcePose": 2,
+          "x": 0,
+          "y": 0,
+          "width": 285,
+          "height": 322,
+          "anchorX": 133,
+          "footY": 318
+        },
+        {
+          "file": "life-pet-03.png",
+          "sourcePose": 3,
+          "x": 0,
+          "y": 0,
+          "width": 284,
+          "height": 322,
+          "anchorX": 128,
+          "footY": 317
+        },
+        {
+          "file": "life-pet-04.png",
+          "sourcePose": 4,
+          "x": 0,
+          "y": 0,
+          "width": 289,
+          "height": 324,
+          "anchorX": 130,
+          "footY": 320
+        },
+        {
+          "file": "life-pet-05.png",
+          "sourcePose": 5,
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 325,
+          "anchorX": 141,
+          "footY": 321
+        },
+        {
+          "file": "life-pet-06.png",
+          "sourcePose": 6,
+          "x": 0,
+          "y": 0,
+          "width": 287,
+          "height": 334,
+          "anchorX": 130,
+          "footY": 330
+        },
+        {
+          "file": "life-pet-07.png",
+          "sourcePose": 7,
+          "x": 0,
+          "y": 0,
+          "width": 287,
+          "height": 332,
+          "anchorX": 128,
+          "footY": 329
+        },
+        {
+          "file": "life-pet-08.png",
+          "sourcePose": 8,
+          "x": 0,
+          "y": 0,
+          "width": 277,
+          "height": 334,
+          "anchorX": 126,
+          "footY": 331
+        }
+      ]
+    },
+    {
+      "animation": "whale",
+      "normalHeight": 242,
+      "durations": [
+        0.3,
+        0.18,
+        0.14,
+        0.16,
+        0.14,
+        0.18,
+        0.28,
+        0.14,
+        0.28,
+        0.24,
+        0.18,
+        0.24,
+        0.16,
+        0.18,
+        0.48,
+        0.32,
+        0.34,
+        0.2,
+        0.18,
+        0.16,
+        0.14,
+        0.18,
+        0.28,
+        0.32
+      ],
+      "rest": 2,
+      "frames": [
+        {
+          "file": "life-whale-01.png",
+          "sourcePose": 1,
+          "x": 0,
+          "y": 0,
+          "width": 285,
+          "height": 246,
+          "anchorX": 181,
+          "footY": 237
+        },
+        {
+          "file": "life-whale-02.png",
+          "sourcePose": 2,
+          "x": 0,
+          "y": 0,
+          "width": 273,
+          "height": 243,
+          "anchorX": 169,
+          "footY": 232
+        },
+        {
+          "file": "life-whale-03.png",
+          "sourcePose": 3,
+          "x": 0,
+          "y": 0,
+          "width": 236,
+          "height": 212,
+          "anchorX": 123,
+          "footY": 208
+        },
+        {
+          "file": "life-whale-04.png",
+          "sourcePose": 4,
+          "x": 0,
+          "y": 0,
+          "width": 251,
+          "height": 209,
+          "anchorX": 136.5,
+          "footY": 206
+        },
+        {
+          "file": "life-whale-05.png",
+          "sourcePose": 5,
+          "x": 0,
+          "y": 0,
+          "width": 245,
+          "height": 209,
+          "anchorX": 130,
+          "footY": 205
+        },
+        {
+          "file": "life-whale-06.png",
+          "sourcePose": 6,
+          "x": 0,
+          "y": 0,
+          "width": 230,
+          "height": 209,
+          "anchorX": 124,
+          "footY": 205
+        },
+        {
+          "file": "life-whale-07.png",
+          "sourcePose": 7,
+          "x": 0,
+          "y": 0,
+          "width": 256,
+          "height": 224,
+          "anchorX": 140,
+          "footY": 220
+        },
+        {
+          "file": "life-whale-08.png",
+          "sourcePose": 8,
+          "x": 0,
+          "y": 0,
+          "width": 246,
+          "height": 221,
+          "anchorX": 132,
+          "footY": 217
+        },
+        {
+          "file": "life-whale-09.png",
+          "sourcePose": 9,
+          "x": 0,
+          "y": 0,
+          "width": 234,
+          "height": 223,
+          "anchorX": 116,
+          "footY": 219
+        },
+        {
+          "file": "life-whale-10.png",
+          "sourcePose": 10,
+          "x": 0,
+          "y": 0,
+          "width": 233,
+          "height": 227,
+          "anchorX": 118,
+          "footY": 223
+        },
+        {
+          "file": "life-whale-11.png",
+          "sourcePose": 11,
+          "x": 0,
+          "y": 0,
+          "width": 229,
+          "height": 221,
+          "anchorX": 111,
+          "footY": 217
+        },
+        {
+          "file": "life-whale-12.png",
+          "sourcePose": 12,
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 220,
+          "anchorX": 132,
+          "footY": 216
+        },
+        {
+          "file": "life-whale-13.png",
+          "sourcePose": 13,
+          "x": 0,
+          "y": 0,
+          "width": 255,
+          "height": 213,
+          "anchorX": 121,
+          "footY": 210
+        },
+        {
+          "file": "life-whale-14.png",
+          "sourcePose": 14,
+          "x": 0,
+          "y": 0,
+          "width": 246,
+          "height": 214,
+          "anchorX": 114,
+          "footY": 210
+        },
+        {
+          "file": "life-whale-15.png",
+          "sourcePose": 15,
+          "x": 0,
+          "y": 0,
+          "width": 241,
+          "height": 235,
+          "anchorX": 115,
+          "footY": 231
+        },
+        {
+          "file": "life-whale-16.png",
+          "sourcePose": 16,
+          "x": 0,
+          "y": 0,
+          "width": 240,
+          "height": 229,
+          "anchorX": 114,
+          "footY": 225
+        },
+        {
+          "file": "life-whale-17.png",
+          "sourcePose": 17,
+          "x": 0,
+          "y": 0,
+          "width": 237,
+          "height": 239,
+          "anchorX": 111,
+          "footY": 235
+        },
+        {
+          "file": "life-whale-18.png",
+          "sourcePose": 18,
+          "x": 0,
+          "y": 0,
+          "width": 223,
+          "height": 213,
+          "anchorX": 111,
+          "footY": 209
+        },
+        {
+          "file": "life-whale-19.png",
+          "sourcePose": 19,
+          "x": 0,
+          "y": 0,
+          "width": 254,
+          "height": 224,
+          "anchorX": 149,
+          "footY": 220
+        },
+        {
+          "file": "life-whale-20.png",
+          "sourcePose": 20,
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 222,
+          "anchorX": 147.5,
+          "footY": 219
+        },
+        {
+          "file": "life-whale-21.png",
+          "sourcePose": 21,
+          "x": 0,
+          "y": 0,
+          "width": 246,
+          "height": 244,
+          "anchorX": 129.5,
+          "footY": 240
+        },
+        {
+          "file": "life-whale-22.png",
+          "sourcePose": 22,
+          "x": 0,
+          "y": 0,
+          "width": 255,
+          "height": 249,
+          "anchorX": 146.5,
+          "footY": 245
+        },
+        {
+          "file": "life-whale-23.png",
+          "sourcePose": 23,
+          "x": 0,
+          "y": 0,
+          "width": 259,
+          "height": 247,
+          "anchorX": 157,
+          "footY": 243
+        },
+        {
+          "file": "life-whale-24.png",
+          "sourcePose": 24,
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 247,
+          "anchorX": 149,
+          "footY": 243
+        }
+      ]
     }
   ]
 }

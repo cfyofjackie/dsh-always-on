@@ -2,10 +2,11 @@ import Foundation
 
 /// Presentation choices are separate from real task states.
 public enum PetAnimation: String, CaseIterable, Codable, Sendable {
-    case idle, working, waiting, success, error, rice, toy
+    case idle, working, waiting, success, error, rice, toy, pet, whale
+    public static let lifeAnimations: [Self] = [.rice, .toy, .pet, .whale]
     public init(state: TaskState) { self = Self(rawValue: state.rawValue)! }
     public var taskState: TaskState { TaskState(rawValue: rawValue) ?? .idle }
-    public var isLife: Bool { self == .rice || self == .toy }
+    public var isLife: Bool { Self.lifeAnimations.contains(self) }
     public var label: String {
         switch self {
         case .idle: return "待机"
@@ -15,6 +16,8 @@ public enum PetAnimation: String, CaseIterable, Codable, Sendable {
         case .error: return "失败"
         case .rice: return "吃大米饭"
         case .toy: return "扔小鲸鱼"
+        case .pet: return "摸头开心"
+        case .whale: return "摸小鲸鱼"
         }
     }
 }
@@ -60,15 +63,16 @@ public struct LifeManifest: Codable, Sendable {
     public var clips: [LifeMotion]
     public func motion(for animation: PetAnimation) -> LifeMotion? { clips.first { $0.animation == animation } }
     public func validate() throws {
-        guard schemaVersion == 1, clips.count == 2, Set(clips.map(\.animation)) == Set([PetAnimation.rice,.toy]) else { throw CharacterManifestError.invalid }
+        let counts: [PetAnimation: Int] = [.rice: 24, .toy: 23, .pet: 8, .whale: 24]
+        guard schemaVersion == 1, clips.count == counts.count, Set(clips.map(\.animation)) == Set(PetAnimation.lifeAnimations) else { throw CharacterManifestError.invalid }
         for clip in clips {
-            guard clip.normalHeight > 0, clip.frames.count == (clip.animation == .rice ? 24 : 23),
+            guard clip.normalHeight > 0, clip.frames.count == counts[clip.animation],
                   clip.frames.count == clip.durations.count, clip.durations.allSatisfy({$0.isFinite && $0 > 0}),
                   clip.rest.isFinite, clip.rest >= 0, clip.cycle.isFinite,
                   Set(clip.frames.map(\.sourcePose)).count == clip.frames.count else { throw CharacterManifestError.invalid }
             for f in clip.frames {
                 guard !f.file.contains("/"), !f.file.contains("\\"), f.file.hasSuffix(".png"),
-                      (1...24).contains(f.sourcePose), f.x >= 0, f.y >= 0, f.width > 0, f.height > 0,
+                      (1...(clip.animation == .pet ? 8 : 24)).contains(f.sourcePose), f.x >= 0, f.y >= 0, f.width > 0, f.height > 0,
                       f.anchorX.isFinite, f.footY.isFinite, f.anchorX >= 0, f.anchorX <= Double(f.width),
                       f.footY >= 0, f.footY <= Double(f.height) else { throw CharacterManifestError.invalid }
             }

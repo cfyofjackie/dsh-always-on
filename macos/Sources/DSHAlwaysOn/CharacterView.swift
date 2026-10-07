@@ -103,7 +103,8 @@ import CompanionCore
         }
         guard contains(CGPoint(x: 104, y: 90)), !contains(.zero), !contains(CGPoint(x: 207, y: 207)) else { throw CharacterManifestError.invalid }
         try LifeArtwork.shared.validate()
-        return ["lifeClips": 2, "lifeFrames": 47, "id": manifest.id, "states": manifest.states.count, "frames": manifest.states.reduce(0) { $0 + $1.frames.count },
+        let life = LifeArtwork.shared.manifest!
+        return ["lifeClips": life.clips.count, "lifeFrames": life.clips.reduce(0) { $0 + $1.frames.count }, "id": manifest.id, "states": manifest.states.count, "frames": manifest.states.reduce(0) { $0 + $1.frames.count },
                 "canvas": manifest.canvasSize, "transparentHitRegion": true]
     }
 }

@@ -88,12 +88,14 @@ import CompanionCore
         }
         model.setAnimationPreview(false)
         try check(model.displayedTaskState == model.taskState,"未恢复真实状态")
-        model.setAnimationPreview(true); model.selectPreviewAnimation(.rice)
-        model.previewRetention(state: .waiting,session: "life-test")
-        try check(!model.animationPreview.enabled && model.displayedTaskState == .waiting,"真实提醒未优先")
+        for animation in PetAnimation.lifeAnimations {
+            model.setAnimationPreview(true); model.selectPreviewAnimation(animation)
+            model.previewRetention(state: .waiting,session: "life-test-\(animation.rawValue)")
+            try check(!model.animationPreview.enabled && model.displayedTaskState == .waiting,"真实提醒未优先")
+        }
         try FileManager.default.createDirectory(at: directory,withIntermediateDirectories: true)
         try LifeArtwork.shared.export(to: directory)
-        for animation in [PetAnimation.rice,.toy] {
+        for animation in PetAnimation.lifeAnimations {
             model.setAnimationPreview(true); model.selectPreviewAnimation(animation); model.setPreviewPlaying(false)
             let host = NSHostingView(rootView: MainView(model: model).background(Color.white).environment(\.colorScheme, .light))
             let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 760,height: 1100),styleMask: [.borderless],backing: .buffered,defer: false)
@@ -105,7 +107,7 @@ import CompanionCore
             try png.write(to: directory.appendingPathComponent("settings-\(animation.rawValue).png"))
             window.close()
         }
-        print("Seven preview actions, pause/restart/recovery, saved delay, real reminder priority and 47 native frames: passed")
+        print("Nine preview actions, pause/restart/recovery, saved delay, real reminder priority and 79 native frames: passed")
     }
 }
 
