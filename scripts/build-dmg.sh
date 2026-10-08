@@ -13,4 +13,7 @@ task_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$
 task_image="$task_root/dist/DSH-Always-On-$task_version-arm64-$(date +%Y%m%d-%H%M%S).dmg"
 hdiutil create -quiet -volname 'DSH Always On' -srcfolder "$task_stage" -format UDZO "$task_image"
 hdiutil verify "$task_image"
+# This stage only contains this invocation's copies and the Applications symlink.
+[[ "$task_stage" == "$task_root/dist/dmg-stage."* && -d "$task_stage" && ! -L "$task_stage" ]] || exit 1
+rm -rf -- "$task_stage"
 printf 'Built: %s\n' "$task_image"

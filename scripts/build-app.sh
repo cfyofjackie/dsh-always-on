@@ -15,10 +15,18 @@ task_app="$task_root/dist/DSH Always On.app"
 task_stage=$(mktemp -d "$task_root/dist/app-stage.XXXXXX")
 ditto "$task_built" "$task_stage/DSH Always On.app"
 codesign --verify --deep --strict "$task_stage/DSH Always On.app"
-# Preserve any existing local build; do not merge two signed bundles.
+# Preserve builds as recoverable archives, so app search does not index every backup.
 if [[ -e "$task_app" ]]; then
-    task_previous="$task_root/dist/DSH Always On-previous-$(date +%Y%m%d-%H%M%S)-${task_stage##*.}.app"
-    mv "$task_app" "$task_previous"
+    [[ -d "$task_app" && ! -L "$task_app" ]] || { printf 'Unexpected existing App path\n' >&2; exit 1; }
+    mkdir -p "$task_root/dist/app-archives"
+    task_previous="$task_root/dist/app-archives/DSH-Always-On-previous-$(date +%Y%m%d-%H%M%S)-${task_stage##*.}.zip"
+    ditto -c -k --sequesterRsrc --keepParent "$task_app" "$task_previous"
+    unzip -tq "$task_previous"
+    # The old bundle moves to our freshly created stage after its archive is verified.
+    mv "$task_app" "$task_stage/previous.app"
 fi
 mv "$task_stage/DSH Always On.app" "$task_app"
+# Only remove this invocation's rebuildable stage; earlier backups remain untouched.
+[[ "$task_stage" == "$task_root/dist/app-stage."* && -d "$task_stage" && ! -L "$task_stage" ]] || exit 1
+rm -rf -- "$task_stage"
 printf 'Built: %s\n' "$task_app"
