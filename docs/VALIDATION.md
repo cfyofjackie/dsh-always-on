@@ -10,7 +10,8 @@
 - 初次只读索引发现34份App，其中Applications正式安装仅1份，其余为16历史备份、10 Xcode产物、5打包副本、2其他工作区副本。后续备份改为ZIP，恢复与严格签名通过；App及DMG成功构建后本次staging移除。历史App备份与旧staging保留，没有清系统索引或项目外配置。
 - 当前Applications及DMG运行App均0.2.0 / 20261008.1，实际运行来自DMG；本轮没有替换或结束它们。前轮已安装0.1.0为历史记录。只读真实桥接baseline HTTP200、client在线、3会话；view-state HTTP404，管理host与新bundle不同，前台查看依赖更新集成并方便时重开DSH。未输出认证信息或会话内容。
 - CUA此次能读取DSH，但三次读取桌宠均native pipe closed，包括独立bundle ID的隔离App。仅结束并清本轮测试副本，不绕过失败工具控制UI、不停止真实App / DSH。跳转沿用既有实测和协议检查，此次未操作真实任务跳转、全屏、锁屏或多显示器，不能宣称现场通过。
-- 独立公开源构建、最终DMG及外部发布校验进行中，成功后更新本节。日志在本地`/tmp/dsh-release-*.log`及`dist/ReleaseValidation/`，不进入Git。
+- 从120c3a2公开源快照独立构建App / DMG成功，不包含实验室或归档。严格签名、arm64、版本 / LSUIElement、44角色及3插件文件通过；只读挂载最终16.70MiB DMG，内部App与测试产物逐字节一致，包含使用说明和Applications链接，成功staging无遗留；只卸载本轮挂载，用户原DMG未动。
+- 最终附件`DSH-Always-On-0.2.0-arm64.dmg`，SHA-256为`f8ea1d7210e74c4c459aa216ada644eec31bc917777e906c726e19e465ed92c5`；本地`dist/release-0.2.0/`含DMG与SHA256SUMS。外部发布校验进行中；日志在`/tmp/dsh-release-*.log`及`dist/ReleaseValidation/`，不进入Git。
 
 ## 双用途与提醒可靠性（2026-10-08）
 
