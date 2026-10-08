@@ -6,10 +6,10 @@
 
 将本文件放入实际项目后，根据代码和已有文档补全以下内容；不确定的信息注明“待确认”，不要猜测。
 
-- 项目用途：DeepSeek Harness 的 macOS 双模式通知伴侣，一个 App 内置 DSH 集成，Native / Desktop Pet 共用事件和会话跳转。
+- 项目用途：macOS 桌宠伴侣，一个 App 提供任务通知伙伴 / 纯桌宠陪伴；任务用途内置 DSH 集成与会话跳转，纯桌宠只作动作表演。两种用途均以菜单栏为入口，无 Dock / 系统任务通知。
 - 主要目录及职责：`macos/` 原生客户端与共享状态核心；`plugin/` TypeScript / Cordis host、client 与桥接；`scripts/` 构建；`docs/` 产品、协议、验证与交接。
 - 安装与启动方法：开发时打开 `macos/DSHAlwaysOn.xcodeproj`，选“DSH Always On / My Mac”，Run。`bash scripts/build-app.sh` 调用同一 Xcode 方案构建 Release；`bash scripts/build-dmg.sh` 生成 DMG。详见 `README.md`、`docs/Xcode开发.md` 和 `docs/使用说明.md`。
-- 测试、检查与构建方法：Xcode 的“DSH Always On”方案通过 ⌘U 运行 44 项核心测试；`plugin/` 下 `npm run check`、`npm test`；原 `macos/` 下 `swift test` 保留。Xcode 27 / Swift 6.4+ / Node 24+，本机交付构建 Apple Silicon、macOS 14+。桌宠形象与动作长期在 `playground/pet-design/` 调整，通过 `bash scripts/refresh-art.sh` 同步已选素材再构建。
+- 测试、检查与构建方法：Xcode 的“DSH Always On”方案通过 ⌘U 运行 51 项核心测试；`plugin/` 下 `npm run check`、`npm test`；原 `macos/` 下 `swift test` 保留。Xcode 27 / Swift 6.4+ / Node 24+，本机交付构建 Apple Silicon、macOS 14+。桌宠形象与动作长期在 `playground/pet-design/` 调整，通过 `bash scripts/refresh-art.sh` 同步已选素材再构建。
 - 重要约定和不能破坏的边界：已验证 DSH 0.2.0-rc.2；不读取凭据、不自动回答/批准；只管理自己的插件注册且保留备份，不停止用户 DSH 任务；原参考图片不改动；没有 Git 时不擅自初始化；发布验收和本机试用分开记录。
 
 ## 开始任务

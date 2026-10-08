@@ -10,12 +10,13 @@ struct MainView: View {
                 Image(systemName: "bell.badge.fill").font(.system(size: 28)).foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 3) { Text("DSH Always On").font(.title2.bold()); Text("让后台任务的进展，及时来到你身边。").foregroundStyle(.secondary) }
                 Spacer()
-                Label(model.connected ? "已连接" : "未连接", systemImage: model.connected ? "checkmark.circle.fill" : "circle.dotted").foregroundStyle(model.connected ? .green : .secondary)
+                Label(model.mode == .companion ? "陪伴中" : model.connected ? "已连接" : "正在连接", systemImage: model.mode == .companion ? "heart.fill" : model.connected ? "checkmark.circle.fill" : "circle.dotted").foregroundStyle(model.mode == .companion || model.connected ? .green : .secondary)
             }
             HStack(spacing: 12) {
-                modeCard(.native, symbol: "bell.fill", subtitle: "系统通知与 Dock 未读角标")
-                modeCard(.pet, symbol: "sparkles", subtitle: "桌面角色与轻量气泡提醒")
+                modeCard(.companion, symbol: "heart.fill", subtitle: "全部动作随机表演，无需连接 DSH")
+                modeCard(.pet, symbol: "sparkles", subtitle: "任务动作、气泡和会话跳转")
             }
+            if model.mode == .pet {
             GroupBox {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack { Text("DeepSeek Harness 集成").font(.headline); Spacer(); Text(model.connectionLabel).font(.caption).foregroundStyle(.secondary) }
@@ -32,13 +33,34 @@ struct MainView: View {
                     if model.connected && !model.clientConnected { Text("等待 DSH 界面连接后，才能准确跳回会话。").font(.caption).foregroundStyle(.orange) }
                 }.padding(5)
             }
+            }
+            if model.mode == .companion {
+                GroupBox("陪伴动作") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Picker("播放方式", selection: $model.companionFixedAnimation) {
+                            Text("随机切换全部动作").tag(nil as PetAnimation?)
+                            ForEach(PetAnimation.allCases, id: \.self) { Text($0.label).tag(Optional($0)) }
+                        }
+                        Text("工作、等待和失败也是角色表演，不代表真实任务，不产生未读或任务气泡。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(5)
+                }
+            }
             HStack {
                 Toggle("开机启动", isOn: Binding(get: { model.launchAtLogin }, set: model.setLogin))
                 Spacer()
-                Toggle("桌宠置顶", isOn: $model.alwaysOnTop).disabled(model.mode != .pet)
+                Toggle("桌宠置顶", isOn: $model.alwaysOnTop)
             }
-            Toggle("全屏时显示桌宠", isOn: $model.showInFullScreen).disabled(model.mode != .pet)
-            Text("默认在全屏空间中隐藏桌宠；返回后不重播旧气泡。系统通知遵循 macOS 的专注设置。")
+            Picker("全屏显示", selection: $model.fullScreenPolicy) {
+                ForEach(FullScreenPolicy.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            Text("全屏完全隐藏时，没有系统横幅兜底；未读保留在会话列表。返回桌面不补弹旧队列。")
+                .font(.caption).foregroundStyle(.secondary)
+            if model.mode == .pet {
+            Picker("当前前台会话提醒", selection: $model.foregroundStyle) {
+                ForEach(ForegroundReminderStyle.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            Text("默认完成只播放动作；失败、提问、批准和计划审阅仍显示气泡。其他会话正常提醒。")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 5) {
                 Picker("桌宠提醒停留时间", selection: $model.reminderRetention) {
@@ -46,6 +68,7 @@ struct MainView: View {
                 }.frame(maxWidth: 440).disabled(model.mode != .pet)
                 Text("控制完成、失败动作与所有气泡；一直保留时，成功打开会话或点 × 后收起。工作和等待状态随任务变化。")
                     .font(.caption).foregroundStyle(.secondary)
+            }
             }
             GroupBox("气泡外观与测试") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -60,13 +83,14 @@ struct MainView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Button(model.bubblePreviewEnabled ? "结束桌面气泡测试" : "在桌面测试气泡") {
                                 if model.bubblePreviewEnabled { model.endBubblePreview() } else { model.beginBubblePreview() }
-                            }.disabled(model.mode != .pet)
+                            }
                             Text("样例不产生未读，也不跳转真实会话。桌面测试持续到关闭；新提醒到来时自动结束。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }.padding(5)
             }
+            if model.mode == .pet {
             GroupBox("待机小生活") {
                 VStack(alignment: .leading, spacing: 8) {
                     Picker("摸鱼开始时间", selection: $model.petIdleDelay) {
@@ -76,10 +100,10 @@ struct MainView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }.padding(5)
             }
+            }
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle("动画测试", isOn: Binding(get: { model.animationPreview.enabled }, set: model.setAnimationPreview))
-                        .disabled(model.mode != .pet)
+                    Toggle("动作与气泡预览", isOn: Binding(get: { model.animationPreview.enabled }, set: model.setAnimationPreview))
                     if model.animationPreview.enabled {
                         HStack(spacing: 16) {
                             CharacterView(state: model.animationPreview.selectedState, animated: model.animationPreview.playing, animation: model.animationPreview.selectedAnimation, revision: model.animationPreview.revision)
@@ -89,6 +113,13 @@ struct MainView: View {
                                 Picker("预览动作", selection: Binding(get: { model.animationPreview.selectedAnimation }, set: model.selectPreviewAnimation)) {
                                     ForEach(PetAnimation.allCases, id: \.self) { Text($0.label).tag($0) }
                                 }.pickerStyle(.menu)
+                                Toggle("同时显示样例气泡", isOn: $model.previewShowsBubble)
+                                if let kind = model.previewBubbleKind {
+                                    BubbleView(model: model, notice: kind.notice, isPreview: true)
+                                } else {
+                                    Text("此动作没有对应任务气泡。等待动作可在上方选择提问、批准或计划审阅。")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                                 HStack {
                                     Toggle("播放动作", isOn: Binding(get: { model.animationPreview.playing }, set: model.setPreviewPlaying))
                                     Spacer()
@@ -105,13 +136,11 @@ struct MainView: View {
                     }
                 }.padding(5).frame(maxWidth: .infinity, alignment: .leading)
             }
-            if model.mode == .native {
-                HStack { Text("系统通知：\(model.notificationPermission)").font(.caption).foregroundStyle(.secondary); Spacer(); Button("通知设置") { model.openNotificationSettings() }.font(.caption) }
-            }
             if let feedback = model.feedback {
                 HStack(alignment: .top) { Image(systemName: "info.circle"); Text(feedback).font(.callout); Spacer(); Button { model.feedback = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain) }
                     .padding(10).background(.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
             }
+            if model.mode == .pet {
             HStack { Text("会话").font(.headline); Spacer(); Text(model.store.unreadCount > 0 ? "\(model.store.unreadCount) 个会话有未读提醒" : "没有未读提醒").font(.caption).foregroundStyle(.secondary) }
             if model.store.orderedSessions.isEmpty {
                 ContentUnavailableView("等待第一个任务", systemImage: "tray", description: Text("在 DSH 中运行任务后，这里会显示状态和提醒。"))
@@ -136,6 +165,8 @@ struct MainView: View {
                     }
             }
             HStack { Text("点击提醒回到 DSH；回答、批准和审阅仍在 DSH 中完成。").font(.caption).foregroundStyle(.secondary); Spacer() }
+            }
+            Text(model.versionLabel).font(.caption).foregroundStyle(.secondary)
         }
         .padding(24)
         }.frame(minWidth: 640, minHeight: 590)
@@ -158,23 +189,28 @@ struct PetView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var awake = true
     @State private var loaf = PetLoafPlayback()
+    @State private var companion = CompanionPlayback()
     private var eligible: Bool {
-        model.mode == .pet && model.petSpaceVisible && awake && !reduceMotion &&
-        !model.animationPreview.enabled && !model.bubblePreviewEnabled && model.taskState == .idle &&
+        model.mode == .pet && model.petSpaceVisible && awake && !model.suspended && !reduceMotion &&
+        !model.animationPreview.enabled && !model.bubblePreviewEnabled && model.displayedTaskState == .idle &&
         model.visibleBubble == nil && LifeArtwork.shared.manifest != nil
     }
     private var selected: PetAnimation {
         if model.animationPreview.enabled { return model.animationPreview.selectedAnimation }
+        if model.bubblePreviewEnabled { return PetAnimation(state: model.displayedTaskState) }
+        if model.mode == .companion { return reduceMotion ? model.companionFixedAnimation ?? .idle : companion.animation }
         return eligible ? loaf.animation ?? PetAnimation(state: model.displayedTaskState) : PetAnimation(state: model.displayedTaskState)
     }
     private struct IdleConfiguration: Hashable { var eligible: Bool; var delay: String }
+    private struct CompanionConfiguration: Hashable { var enabled: Bool; var fixed: PetAnimation? }
     var body: some View {
         VStack(spacing: 0) {
-            CharacterView(state: model.displayedTaskState,
-                animated: model.mode == .pet && model.petSpaceVisible && awake && (!model.animationPreview.enabled || model.animationPreview.playing),
-                animation: selected, revision: model.animationPreview.enabled ? model.animationPreview.revision : 0, looping: model.animationPreview.enabled || !selected.isLife)
+            CharacterView(state: selected.taskState,
+                animated: model.petSpaceVisible && awake && !model.suspended && (!model.animationPreview.enabled || model.animationPreview.playing),
+                animation: selected, revision: model.animationPreview.enabled ? model.animationPreview.revision : model.mode == .companion ? companion.revision : 0,
+                looping: model.animationPreview.enabled || model.companionFixedAnimation != nil || !selected.isLife)
             Text(model.bubblePreviewEnabled ? "气泡测试" : model.animationPreview.enabled ? "\(selected.label) · 动画测试" :
-                 selected.isLife ? selected.label : model.connected ? model.taskState.label : "未连接 · 休息中")
+                 model.mode == .companion ? "陪伴 · " + selected.label : selected.isLife ? selected.label : model.connected ? model.displayedTaskState.label : "正在连接 · 休息中")
                 .font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
                 .padding(.horizontal, 9).padding(.vertical, 4).background(.black.opacity(0.50), in: Capsule())
         }.frame(width: CharacterArtwork.size, height: 240, alignment: .top)
@@ -184,6 +220,19 @@ struct PetView: View {
                 while !Task.isCancelled {
                     loaf.advance(eligible: eligible,delay: model.petIdleDelay.seconds,now: ProcessInfo.processInfo.systemUptime,
                         choose: { PetAnimation.lifeAnimations.randomElement()! },cycle: { LifeArtwork.shared.manifest?.motion(for: $0)?.cycle ?? 0 })
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                }
+            }
+            .task(id: CompanionConfiguration(enabled: model.mode == .companion && model.petSpaceVisible && awake && !model.suspended && !reduceMotion && !model.animationPreview.enabled && !model.bubblePreviewEnabled,
+                                             fixed: model.companionFixedAnimation)) {
+                companion.reset()
+                guard model.mode == .companion, model.petSpaceVisible, awake, !model.suspended, !reduceMotion,
+                      !model.animationPreview.enabled, !model.bubblePreviewEnabled else { return }
+                while !Task.isCancelled {
+                    companion.advance(now: ProcessInfo.processInfo.systemUptime, fixed: model.companionFixedAnimation,
+                        choose: { $0.randomElement()! }, cycle: { animation in
+                            LifeArtwork.shared.manifest?.motion(for: animation)?.cycle ?? max(8, CharacterArtwork.shared.manifest?.motion(for: animation.taskState)?.duration ?? 8)
+                        })
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
                 }
             }
@@ -211,7 +260,7 @@ struct BubbleView: View {
         let size = BubblePlacement.size
         let shape = CompanionBubbleShape(side: model.bubbleTailSide, offset: model.bubbleTailOffset)
         let body = shape.bodyRect(in: CGRect(origin: .zero, size: size))
-        Button { if isPreview { model.endBubblePreview() } else { model.openSession(notice.sessionId) } } label: {
+        Button { if isPreview { if model.animationPreview.enabled { model.setAnimationPreview(false) } else { model.endBubblePreview() } } else { model.openSession(notice.sessionId) } } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 7) {
                     Image(systemName: notice.state.previewSymbol).font(.system(size: 13, weight: .semibold))
@@ -243,7 +292,7 @@ struct BubbleView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(isPreview ? "气泡样例：\(notice.title)" : "打开会话：\(notice.title)")
         .overlay(alignment: .topLeading) {
-            Button { if isPreview { model.endBubblePreview() } else { model.dismissBubble(id: notice.id) } } label: {
+            Button { if isPreview { if model.animationPreview.enabled { model.setAnimationPreview(false) } else { model.endBubblePreview() } } else { model.dismissBubble(id: notice.id) } } label: {
                 Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(ink.opacity(0.55))
                     .frame(width: 28, height: 28).background(ink.opacity(0.045), in: Circle()).contentShape(Circle())
             }

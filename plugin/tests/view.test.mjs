@@ -76,14 +76,15 @@ test('unconfirmed view expires with no command to replay', async t => {
 });
 
 import vm from 'node:vm';
-async function runClient({ switchDuringFrames = false } = {}) {
-  let loaded, dispose, frames = 0, receipts = 0, navigations = 0;
+async function runClient({ switchDuringFrames = false, resumeAfterFailure = false } = {}) {
+  let loaded, dispose, frames = 0, receipts = 0, navigations = 0, reports = 0;
   const f = context(), listeners = new Map();
   f.ctx.sessions.refresh = async () => {};
   f.ctx.uiWorkspace = { openSession: () => { navigations++; } };
   f.ctx.uiSession.sessionStatus.subscribe = () => () => {};
   f.ctx.effect = callback => { dispose = callback(); };
   f.ctx.connection = { rpc: { call: async (_channel, endpoint, payload, signal) => {
+    if (endpoint.endsWith('/status')) { reports++; if (resumeAfterFailure && reports === 1) throw new Error('sleep disconnect'); }
     if (endpoint.endsWith('/poll')) return new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }));
     if (endpoint.endsWith('/view')) {
       if (payload.receipt) { receipts++; return { ok: true, value: [] }; }
@@ -97,12 +98,21 @@ async function runClient({ switchDuringFrames = false } = {}) {
     requestAnimationFrame: callback => setTimeout(() => { frames++; if (switchDuringFrames) f.panel.activePanelId = 'settings'; callback(); }, 0), cancelAnimationFrame: clearTimeout };
   vm.runInNewContext(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'), sandbox);
   loaded.apply(f.ctx); await new Promise(r => setTimeout(r, 30));
+  if (resumeAfterFailure) {
+    assert.equal(reports, 1);
+    listeners.get('pageshow')(); await new Promise(r => setTimeout(r, 10));
+    listeners.get('online')(); await new Promise(r => setTimeout(r, 10));
+  }
   dispose(); await new Promise(r => setTimeout(r, 5));
-  return { receipts, navigations, frames, listeners };
+  return { receipts, navigations, frames, listeners, reports };
 }
 test('bundled client confirms after rendered frames without navigating; cleanup removes listeners', async () => {
   const result = await runClient(); assert.equal(result.receipts, 1); assert.equal(result.navigations, 0); assert.equal(result.frames, 2); assert.equal(result.listeners.size, 0);
 });
 test('selection changing during rendered frames prevents bundled client receipt', async () => {
   const result = await runClient({ switchDuringFrames: true }); assert.equal(result.receipts, 0); assert.equal(result.navigations, 0); assert.equal(result.listeners.size, 0);
+});
+test('page restoration and reconnect resend status without waiting for the command long poll', async () => {
+  const result = await runClient({ resumeAfterFailure: true });
+  assert.equal(result.reports, 3); assert.equal(result.navigations, 0); assert.equal(result.listeners.size, 0);
 });

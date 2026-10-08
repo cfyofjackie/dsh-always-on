@@ -1,7 +1,19 @@
-# V0.1 验证记录
+# DSH Always On 验证记录
 
-日期：2026-10-03  
+更新日期：2026-10-08
 交付性质：本机试用，不等于正式发布验收全部通过
+
+## 双用途与提醒可靠性（2026-10-08）
+
+- 当前源码 / 本地包0.2.0 / build20261008.1；[清单](tasks/2026-10-08-桌宠双用途与提醒可靠性.md)4/7，七项源码已实现，真实前台 / 全屏 / 解锁三个条目待现场验收。Native与DSH本体角标目标用户已取消，不计当前待办；旧验证历史保留。
+- Swift Package / Xcode各51项通过：旧Native偏好迁移、全屏开关迁移、提醒收起后再次隐藏、前台完成与待处理差异、九动作无连续重复 / 固定 / 重置、联合预览类型，加原44项事件 / 读边界 / 帧时序。TypeScript与Node32项通过；新增client恢复事件测试覆盖首次status失败、命令长轮询悬挂时pageshow / online重发基线，销毁移除监听，不导航。
+- Debug `--validate-product` 以随机UserDefaults和内存事件检查旧模式迁移、AppKit accessory及空badge、模式切换未读保留、纯桌宠拒收任务、九动作匹配样例、屏幕与会话双原因只有全部恢复才继续、三种前台反馈与默认待处理气泡。
+- `--validate-reminder-preview` 检查两外观五内容浅深20样例、偏好恢复、不持久化测试、真实提醒优先、等待保留、完全隐藏期间保存未读及不补弹。`--validate-life-preview` 检查九动作选择 / 暂停 / 从头 / 恢复、四生活提醒优先，导出79原生帧与四设置离屏图；摸鲸鱼设置图已核对新双用途 / 全屏 / 前台 / 联合预览布局。离屏图不等于真实点击或连续轮播验收。
+- Release严格签名与`--validate-character`通过：5状态20帧、4生活79姿势、208pt透明命中。全部生产角色资源与新bundle逐字节一致，内置host / client / package与plugin输出一致；图集 / PNG / 认可源没有本轮Git差异。Info版本与LSUIElement检查通过，DMG校验通过（`dist/DSH-Always-On-0.2.0-arm64-20261008-091618.dmg`），旧dist留previous。
+- 已安装App仍0.1.0/build1，AppIcon.icns与新bundle不同；本轮没有更新已安装App、实际启用插件、DSH patch、登录项 / 系统权限 / 缓存。用户安装新App后核对版本，更新集成并方便时重开DSH以启用client恢复改动。
+- 真实UI测试尝试启动隔离preview App，不连接DSH / 写真实状态；CUA初始化与reset后重连均“Sky Computer Use native pipe closed before response”。只结束本轮exec session启动的preview，未绕过工具，不停止真实App / DSH / 其他session。早先只读DSH界面可读取，不代表后续功能测试成功。
+- **未验证**：运行新plugin的真实DSH前台查看确认、五类真实事件全覆盖、系统原生全屏 / 点气泡回DSH再回视频、独占 / 同Space视频、多屏和真实锁屏解锁重连。独立普通Space探针替代角色自身Space判断只是实现方案；不宣称所有全屏已修复。当前只能识别原生Space策略，同Space视频不自动分类，完全隐藏无系统通知兜底。
+- 日志 / 样例保存在本地`dist/ProductValidation/`（不进入Git）；本轮只本地提交、不推送 / 发布，公开v0.1.0保持原实现。
 
 ## 四套认可小生活与九动作测试（2026-10-07）
 

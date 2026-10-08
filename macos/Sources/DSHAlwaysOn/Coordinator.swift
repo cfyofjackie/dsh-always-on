@@ -12,7 +12,7 @@ struct Endpoint: Codable {
     var instanceId: String
 }
 
-@MainActor final class Coordinator: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+@MainActor final class Coordinator: NSObject, ObservableObject {
     static let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DSH Always On", isDirectory: true)
     @Published var store = SessionStore()
     @Published var connected = false
@@ -21,14 +21,12 @@ struct Endpoint: Codable {
     @Published var feedback: String?
     @Published var mode: NotificationMode? {
         didSet {
+            guard oldValue != mode else { return }
             preferences.set(mode?.rawValue, forKey: "notificationMode")
-            if !previewOnly {
-                UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-                UNUserNotificationCenter.current().removeAllDeliveredNotifications()
-            }
-            bubbleTask?.cancel(); reminderQueue.clear(); bubble = nil
-            preferences.removeObject(forKey: "retainedBubbleID")
-            animationPreview.end(); bubblePreviewEnabled = false
+            closePetFeedback(); foregroundGeneration += 1; modeGeneration += 1
+            viewStatus = nil; activeViews.removeAll(); pendingNotices.removeAll(); pendingFeedbackIDs.removeAll()
+            unconfirmedViewIDs.removeAll(); retryViewedAfter.removeAll()
+            if started && !previewOnly { restartPolling(baseline: true) }
             applyMode()
         }
     }
@@ -37,17 +35,28 @@ struct Endpoint: Codable {
         didSet {
             preferences.set(reminderRetention.rawValue, forKey: "reminderRetention")
             reminderQueue.restartTimer(now: now)
+            if let foregroundFeedback { scheduleForegroundExpiration(foregroundFeedback) }
             syncBubble(); updatePresentation(); scheduleFeedbackExpiration()
         }
     }
     @Published var petIdleDelay: PetIdleDelay { didSet { preferences.set(petIdleDelay.rawValue, forKey: "petIdleDelay") } }
     @Published var bubbleStyle: BubbleStyle { didSet { preferences.set(bubbleStyle.rawValue, forKey: "bubbleStyle") } }
-    @Published var showInFullScreen: Bool { didSet { preferences.set(showInFullScreen, forKey: "showInFullScreen"); petController?.update() } }
+    @Published var fullScreenPolicy: FullScreenPolicy { didSet { preferences.set(fullScreenPolicy.rawValue, forKey: "fullScreenPolicy"); petController?.update() } }
+    @Published var foregroundStyle: ForegroundReminderStyle { didSet { preferences.set(foregroundStyle.rawValue, forKey: "foregroundStyle") } }
+    @Published var companionFixedAnimation: PetAnimation? { didSet { preferences.set(companionFixedAnimation?.rawValue, forKey: "companionFixedAnimation") } }
+    @Published var previewShowsBubble = true
+    @Published private(set) var suspended = false
+    @Published private(set) var foregroundFeedback: Notice?
+    private var foregroundFeedbackTask: Task<Void, Never>?
+    private var workspaceObservers: [NSObjectProtocol] = []
+    private var suspensionReasons = Set<String>()
+    private var started = false
+    private var pollGeneration = 0
+    private var consecutiveFailures = 0
     @Published var bubblePreviewKind: BubblePreviewKind = .success { didSet { petController?.update() } }
     @Published private(set) var bubblePreviewEnabled = false
     @Published private(set) var petSpaceVisible = true
     @Published var launchAtLogin = false
-    @Published var notificationPermission = "未请求"
     @Published var bubble: Notice?
     @Published private(set) var animationPreview = AnimationPreview()
     @Published var bubbleTailSide: BubbleTailSide = .right
@@ -66,12 +75,13 @@ struct Endpoint: Codable {
     private let preferences: UserDefaults
     private let previewOnly: Bool
     private var now: Double { Date().timeIntervalSince1970 * 1000 }
-    private let network: URLSession
+    private var network: URLSession
     private var endpoint: Endpoint?
     private var cursorEpoch = ""
     private var cursor = -1
     private var viewStatus: ViewStatus?
     private var foregroundGeneration = 0
+    private var modeGeneration = 0
     private var activeViews = Set<String>()
     private var pendingNotices: [String: Notice] = [:]
     private var pendingFeedbackIDs = Set<String>()
@@ -79,13 +89,16 @@ struct Endpoint: Codable {
     private var retryViewedAfter: [String: Double] = [:]
     private var workspaceObserver: NSObjectProtocol?
     private var attentionTimer: Task<Void, Never>?
-    private var dshForeground: Bool { NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.deepseek.dsh" }
+    private var dshForeground: Bool { !suspended && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.deepseek.dsh" }
     private func watchAttention() {
         workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 self.foregroundGeneration += 1; self.unconfirmedViewIDs.removeAll(); self.retryViewedAfter.removeAll()
-                if self.dshForeground { self.closePetFeedback(); await self.refreshViewedSession() }
+                self.activeViews.removeAll(); self.pendingFeedbackIDs.removeAll()
+                let pending = Array(self.pendingNotices.values); self.pendingNotices.removeAll()
+                if self.mode == .pet && self.dshForeground { self.closePetFeedback(); await self.refreshViewedSession() }
+                else if self.mode == .pet { for notice in pending where self.store.unreadIDs(sessionId: notice.sessionId).contains(notice.id) { self.present(notice) } }
             }
         }
         attentionTimer = Task { [weak self] in
@@ -96,11 +109,13 @@ struct Endpoint: Codable {
         }
     }
     private func refreshViewedSession() async {
-        guard !previewOnly, dshForeground, connected, let endpoint else { return }
+        guard mode == .pet, !previewOnly, dshForeground, connected, let endpoint else { return }
+        let generation = foregroundGeneration
         do {
             var request = try authorizedRequest(endpoint, path: "/view-state"); request.timeoutInterval = 2
             let (data, response) = try await network.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200, self.endpoint?.sourceEpoch == endpoint.sourceEpoch else { return }
+            guard (response as? HTTPURLResponse)?.statusCode == 200, self.endpoint?.sourceEpoch == endpoint.sourceEpoch,
+                  generation == foregroundGeneration, mode == .pet, dshForeground else { return }
             struct State: Decodable { var viewStatus: ViewStatus? }
             let nextView = try JSONDecoder().decode(State.self, from: data).viewStatus
             if viewStatus?.sessionId != nextView?.sessionId { unconfirmedViewIDs.removeAll(); retryViewedAfter.removeAll() }
@@ -109,10 +124,26 @@ struct Endpoint: Codable {
         } catch { /* Older bridge: never infer viewed from activation alone. */ }
     }
     private func route(_ notice: Notice) {
+        guard mode == .pet else { return }
         animationPreview.end(); bubblePreviewEnabled = false
         if viewStatus?.eligible(sessionId: notice.sessionId, foreground: dshForeground, now: now) == true {
             pendingNotices[notice.id] = notice; pendingFeedbackIDs.insert(notice.id)
             confirmViewing(notice.sessionId)
+        } else if dshForeground && connected && !previewOnly {
+            // Obtain a fresh report before deciding from a stale long-poll snapshot.
+            let generation = foregroundGeneration
+            pendingNotices[notice.id] = notice; pendingFeedbackIDs.insert(notice.id)
+            Task {
+                await refreshViewedSession()
+                guard generation == foregroundGeneration, mode == .pet,
+                      store.notices.contains(where: { $0.id == notice.id && !$0.read && !$0.resolved }) else {
+                    pendingFeedbackIDs.remove(notice.id); updatePresentation(); return
+                }
+                pendingFeedbackIDs.remove(notice.id)
+                if viewStatus?.eligible(sessionId: notice.sessionId, foreground: dshForeground, now: now) == true {
+                    pendingNotices[notice.id] = notice; confirmViewing(notice.sessionId)
+                } else { pendingNotices.removeValue(forKey: notice.id); present(notice) }
+            }
         } else { present(notice) }
     }
     private func confirmViewing(_ id: String) {
@@ -139,6 +170,7 @@ struct Endpoint: Codable {
                         throughSequence: sequence, foregroundUnchanged: dshForeground && generation == foregroundGeneration && store.sourceEpoch == epoch && self.endpoint?.sourceEpoch == epoch)
                 }
             } catch { /* An unconfirmed view retains unread and normal reminder behavior. */ }
+            guard generation == foregroundGeneration, mode == .pet, !suspended else { return }
             activeViews.remove(id); pendingFeedbackIDs.subtract(boundary)
             if !confirmed { unconfirmedViewIDs.formUnion(boundary); retryViewedAfter[id] = now + 5000 }
             if confirmed {
@@ -151,8 +183,13 @@ struct Endpoint: Codable {
                 removeBubbles(ids: boundary)
             }
             for noticeID in boundary {
-                if let notice = pendingNotices.removeValue(forKey: noticeID), !confirmed,
-                   store.notices.contains(where: { $0.id == noticeID && !$0.read && !$0.resolved }) { present(notice) }
+                if let notice = pendingNotices.removeValue(forKey: noticeID) {
+                    if confirmed { presentForeground(notice) }
+                    else if store.notices.contains(where: { $0.id == noticeID && !$0.read && !$0.resolved }) {
+                        if viewStatus?.eligible(sessionId: id, foreground: dshForeground, now: now) == true { presentForeground(notice) }
+                        else { present(notice) }
+                    }
+                }
             }
             updatePresentation()
             let remaining = pendingNotices.values.filter { $0.sessionId == id }
@@ -165,18 +202,20 @@ struct Endpoint: Codable {
 
     init(preferences: UserDefaults = .standard, previewOnly: Bool = false) {
         self.preferences = preferences; self.previewOnly = previewOnly
-        mode = preferences.string(forKey: "notificationMode").flatMap(NotificationMode.init(rawValue:))
+        let initialMode = NotificationMode.saved(preferences.string(forKey: "notificationMode"))
+        mode = initialMode
+        preferences.set(initialMode.rawValue, forKey: "notificationMode")
         alwaysOnTop = preferences.object(forKey: "alwaysOnTop") as? Bool ?? true
         reminderRetention = ReminderRetention.saved(preferences.string(forKey: "reminderRetention"))
         petIdleDelay = PetIdleDelay.saved(preferences.string(forKey: "petIdleDelay"))
         bubbleStyle = BubbleStyle.saved(preferences.string(forKey: "bubbleStyle"))
-        showInFullScreen = preferences.bool(forKey: "showInFullScreen")
+        fullScreenPolicy = FullScreenPolicy.saved(preferences.string(forKey: "fullScreenPolicy"),
+            legacy: preferences.object(forKey: "showInFullScreen") as? Bool, mode: initialMode)
+        foregroundStyle = preferences.string(forKey: "foregroundStyle").flatMap(ForegroundReminderStyle.init(rawValue:)) ?? .actionOnly
+        companionFixedAnimation = preferences.string(forKey: "companionFixedAnimation").flatMap(PetAnimation.init(rawValue:))
         dismissedFeedbackIDs = Set(preferences.stringArray(forKey: "dismissedFeedbackIDs") ?? [])
         dshHome = preferences.string(forKey: "dshHome") ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".dsh").path
-        let config = URLSessionConfiguration.ephemeral; config.timeoutIntervalForRequest = 27; config.timeoutIntervalForResource = 30
-        // This session talks only to 127.0.0.1. Never forward the local bearer token through a system proxy.
-        config.connectionProxyDictionary = [:]
-        network = URLSession(configuration: config)
+        network = Self.makeNetwork()
         super.init()
         guard !previewOnly else { return }
         try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -188,34 +227,58 @@ struct Endpoint: Codable {
         }
         cursor = store.sequence; cursorEpoch = store.sourceEpoch
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        UNUserNotificationCenter.current().delegate = self
+        // Only retire our own old notifications, once, without requesting authorization.
+        if !preferences.bool(forKey: "nativeNotificationsRetired") {
+            UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+            preferences.set(true, forKey: "nativeNotificationsRetired")
+        }
         refreshIntegration()
     }
     var portrait: SessionRecord? { store.portrait(connected: connected, retention: reminderRetention, dismissedFeedbackIDs: dismissedFeedbackIDs.union(pendingFeedbackIDs)) }
-    var taskState: TaskState { portrait?.state ?? .idle }
-    var displayedTaskState: TaskState { bubblePreviewEnabled ? bubblePreviewKind.state : animationPreview.displayedState(live: taskState) }
-    var visibleBubble: Notice? { bubblePreviewEnabled ? bubblePreviewKind.notice : animationPreview.enabled ? nil : bubble }
+    var taskState: TaskState { mode == .companion ? .idle : portrait?.state ?? .idle }
+    var displayedTaskState: TaskState {
+        if animationPreview.enabled { return animationPreview.selectedState }
+        if bubblePreviewEnabled { return bubblePreviewKind.state }
+        if let foregroundFeedback, taskState != .waiting { return foregroundFeedback.state }
+        return taskState
+    }
+    var previewBubbleKind: BubblePreviewKind? {
+        animationPreview.enabled && previewShowsBubble ? PreviewBubble.kind(for: animationPreview.selectedAnimation, waiting: bubblePreviewKind) : nil
+    }
+    var visibleBubble: Notice? {
+        if animationPreview.enabled { return previewBubbleKind?.notice }
+        if bubblePreviewEnabled { return bubblePreviewKind.notice }
+        return mode == .pet ? bubble : nil
+    }
+    var isBubblePreview: Bool { bubblePreviewEnabled || (animationPreview.enabled && previewBubbleKind != nil) }
+    var hasPresentationFeedback: Bool { visibleBubble != nil || foregroundFeedback != nil || animationPreview.enabled }
+    var versionLabel: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        return "版本 \(info["CFBundleShortVersionString"] as? String ?? "开发版") · 构建 \(info["CFBundleVersion"] as? String ?? "—")"
+    }
     func beginBubblePreview() {
-        guard mode == .pet else { return }
         animationPreview.end(); bubblePreviewEnabled = true; petController?.update()
     }
     func endBubblePreview() { bubblePreviewEnabled = false; petController?.update() }
     func setPetSpaceVisible(_ visible: Bool) {
         guard petSpaceVisible != visible else { return }
         petSpaceVisible = visible
-        if !visible { closePetFeedback() } else { petController?.update() }
+        if !visible && fullScreenPolicy == .hidden { closePetFeedback() }
+        petController?.update()
     }
     private func closePetFeedback() {
         let ids = Set(store.notices.filter { !$0.read && !$0.resolved }.map(\.id))
         dismissedFeedbackIDs.formUnion(ids)
         preferences.set(Array(dismissedFeedbackIDs), forKey: "dismissedFeedbackIDs")
+        foregroundFeedbackTask?.cancel(); foregroundFeedback = nil
         bubbleTask?.cancel(); reminderQueue.clear(); bubble = nil
         preferences.removeObject(forKey: "retainedBubbleID")
         animationPreview.end(); bubblePreviewEnabled = false; updatePresentation()
     }
     var usesIsolatedPreview: Bool { previewOnly }
     func setAnimationPreview(_ enabled: Bool) {
-        if enabled && mode == .pet { bubblePreviewEnabled = false; animationPreview.begin(state: taskState) }
+        if enabled { bubblePreviewEnabled = false; animationPreview.begin(state: taskState) }
         else { animationPreview.end() }
         petController?.update()
     }
@@ -228,18 +291,61 @@ struct Endpoint: Codable {
     var dshInstalled: Bool { FileManager.default.fileExists(atPath: "/Applications/DeepSeek Harness.app") }
     var dshVersion: String? { Bundle(path: "/Applications/DeepSeek Harness.app")?.infoDictionary?["CFBundleShortVersionString"] as? String }
 
-    func start() {
-        applyMode()
-        if !previewOnly { watchAttention() }
-        pollTask = Task { [weak self] in await self?.poll() }
-        Task { await refreshPermission() }
+    private static func makeNetwork() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 27; config.timeoutIntervalForResource = 30
+        config.connectionProxyDictionary = [:]
+        return URLSession(configuration: config)
     }
-    func stop() { if let workspaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver) }; attentionTimer?.cancel(); pollTask?.cancel(); expireTask?.cancel(); bubbleTask?.cancel(); network.invalidateAndCancel() }
+    func start() {
+        started = true; applyMode()
+        if !previewOnly { watchAttention(); watchLifecycle(); restartPolling(baseline: false) }
+    }
+    func stop() {
+        started = false
+        if let workspaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver) }
+        for observer in workspaceObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        workspaceObservers.removeAll()
+        attentionTimer?.cancel(); pollTask?.cancel(); expireTask?.cancel(); bubbleTask?.cancel(); foregroundFeedbackTask?.cancel()
+        network.invalidateAndCancel()
+    }
+    private func watchLifecycle() {
+        let center = NSWorkspace.shared.notificationCenter
+        let events: [(Notification.Name, String, Bool)] = [
+            (NSWorkspace.willSleepNotification, "sleep", true), (NSWorkspace.didWakeNotification, "sleep", false),
+            (NSWorkspace.screensDidSleepNotification, "screen", true), (NSWorkspace.screensDidWakeNotification, "screen", false),
+            (NSWorkspace.sessionDidResignActiveNotification, "session", true), (NSWorkspace.sessionDidBecomeActiveNotification, "session", false)]
+        for (name, reason, sleep) in events {
+            workspaceObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.setSuspended(sleep, reason: reason) }
+            })
+        }
+    }
+    func setSuspended(_ value: Bool, reason: String = "test") {
+        if value { suspensionReasons.insert(reason) } else { suspensionReasons.remove(reason) }
+        let next = !suspensionReasons.isEmpty
+        guard suspended != next else { return }
+        suspended = next; foregroundGeneration += 1
+        activeViews.removeAll(); pendingNotices.removeAll(); pendingFeedbackIDs.removeAll(); viewStatus = nil
+        unconfirmedViewIDs.removeAll(); retryViewedAfter.removeAll()
+        if next { closePetFeedback(); pollGeneration += 1; pollTask?.cancel(); network.invalidateAndCancel() }
+        else if started && !previewOnly { restartPolling(baseline: false) }
+        connectionLabel = next ? "休息中，解锁后自动连接" : "正在恢复连接…"
+        updatePresentation()
+    }
+    private func restartPolling(baseline: Bool) {
+        pollGeneration += 1; pollTask?.cancel(); network.invalidateAndCancel(); network = Self.makeNetwork()
+        connected = false; clientConnected = false; consecutiveFailures = 0
+        if baseline { cursor = -1; cursorEpoch = "" }
+        guard mode == .pet, !suspended else { connectionLabel = "纯桌宠陪伴"; return }
+        connectionLabel = "正在恢复连接…"
+        let generation = pollGeneration
+        pollTask = Task { [weak self] in await self?.poll(generation: generation) }
+    }
     func applyMode() {
-        NSApp.setActivationPolicy(mode == .native || mode == nil ? .regular : .accessory)
-        NSApp.dockTile.badgeLabel = mode == .native && store.unreadCount > 0 ? String(store.unreadCount) : nil
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.dockTile.badgeLabel = nil
         petController?.update()
-        if mode == .native && !previewOnly { Task { await requestPermission() } }
     }
     func refreshIntegration() {
         integrationEnabled = (try? String(contentsOf: patchURL, encoding: .utf8).contains(IntegrationPatch.begin)) ?? false
@@ -297,23 +403,6 @@ struct Endpoint: Codable {
             if enabled && !launchAtLogin { feedback = "请在系统设置的登录项中允许 DSH Always On。" }
         } catch { feedback = "开机启动设置失败：\(readable(error))" }
     }
-    func requestPermission() async {
-        let center = UNUserNotificationCenter.current()
-        let settings = await center.notificationSettings()
-        if settings.authorizationStatus == .notDetermined {
-            do { _ = try await center.requestAuthorization(options: [.alert, .badge, .sound]) }
-            catch { feedback = "系统通知权限申请失败：\(error.localizedDescription)" }
-        }
-        await refreshPermission()
-    }
-    func refreshPermission() async {
-        switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
-        case .authorized, .provisional, .ephemeral: notificationPermission = "已允许"
-        case .denied: notificationPermission = "已关闭，可在系统设置中开启"
-        default: notificationPermission = "未请求"
-        }
-    }
-    func openNotificationSettings() { if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") { NSWorkspace.shared.open(url) } }
     func readSession(_ id: String) {
         let ids = store.unreadIDs(sessionId: id)
         store.markRead(sessionId: id, ids: ids); if !previewOnly { persist() }
@@ -324,6 +413,7 @@ struct Endpoint: Codable {
         removeBubbles(ids: ids); updatePresentation()
     }
     func clickCharacter() {
+        if mode == .companion { showMain(); return }
         if bubblePreviewEnabled { endBubblePreview(); showMain() }
         else if animationPreview.enabled { showMain() }
         else if let bubble { openSession(bubble.sessionId) }
@@ -332,6 +422,9 @@ struct Endpoint: Codable {
         else { showMain() }
     }
     func openSession(_ id: String) {
+        guard mode == .pet else { showMain(); return }
+        foregroundFeedbackTask?.cancel(); foregroundFeedback = nil
+        let generation = modeGeneration
         let readBoundary = store.unreadIDs(sessionId: id)
         let displayedID = bubble?.sessionId == id ? bubble?.id : nil
         if previewOnly {
@@ -352,6 +445,8 @@ struct Endpoint: Codable {
                 guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw AppFailure.message("会话跳转请求失败，请重试。") }
                 let result = try JSONSerialization.jsonObject(with: data) as? [String: String]
                 guard result?["requestId"] == requestId else { throw AppFailure.message("会话跳转未收到有效确认，请重试。") }
+                guard mode == .pet, generation == modeGeneration, !suspended,
+                      self.endpoint?.sourceEpoch == endpoint.sourceEpoch else { return }
                 if result?["status"] == "opened" {
                     store.markRead(sessionId: id, ids: readBoundary); persist()
                     UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: Array(readBoundary))
@@ -365,7 +460,10 @@ struct Endpoint: Codable {
                     }
                     showMain()
                 }
-            } catch { feedback = readable(error); showMain() }
+            } catch {
+                guard mode == .pet, generation == modeGeneration, !suspended else { return }
+                feedback = readable(error); showMain()
+            }
         }
     }
     private func authorizedRequest(_ endpoint: Endpoint, path: String) throws -> URLRequest {
@@ -373,8 +471,8 @@ struct Endpoint: Codable {
               let url = URL(string: "http://127.0.0.1:\(endpoint.port)\(path)") else { throw AppFailure.message("集成协议不兼容，请重新启用集成。") }
         var request = URLRequest(url: url); request.setValue("Bearer \(endpoint.token)", forHTTPHeaderField: "Authorization"); return request
     }
-    private func poll() async {
-        while !Task.isCancelled {
+    private func poll(generation: Int) async {
+        while !Task.isCancelled && generation == pollGeneration && mode == .pet && !suspended {
             do {
                 let data = try Data(contentsOf: Self.directory.appendingPathComponent("endpoint.json"))
                 let discovered = try JSONDecoder().decode(Endpoint.self, from: data)
@@ -382,6 +480,7 @@ struct Endpoint: Codable {
                 endpoint = discovered
                 let request = try authorizedRequest(discovered, path: "/poll?after=\(cursor)&epoch=\(cursorEpoch)")
                 let (body, response) = try await network.data(for: request)
+                guard generation == pollGeneration, !Task.isCancelled, mode == .pet, !suspended else { break }
                 guard (response as? HTTPURLResponse)?.statusCode == 200, body.count <= 4_000_000 else { throw AppFailure.message("连接校验失败，请重新启用集成。") }
                 let feed = try JSONDecoder().decode(BridgeFeed.self, from: body)
                 var candidate = store
@@ -393,7 +492,7 @@ struct Endpoint: Codable {
                 dismissedFeedbackIDs.formIntersection(Set(store.notices.map(\.id)))
                 preferences.set(Array(dismissedFeedbackIDs), forKey: "dismissedFeedbackIDs")
                 cursor = feed.throughSequence; cursorEpoch = feed.sourceEpoch
-                connected = true; clientConnected = feed.clientConnected
+                connected = true; clientConnected = feed.clientConnected; consecutiveFailures = 0
                 connectionLabel = clientConnected ? "DSH 已连接" : "任务连接正常，等待 DSH 界面"
                 for notice in new where viewStatus?.eligible(sessionId: notice.sessionId, foreground: dshForeground, now: now) == true {
                     pendingFeedbackIDs.insert(notice.id)
@@ -403,10 +502,11 @@ struct Endpoint: Codable {
                 if let id = viewStatus?.sessionId, !store.unreadIDs(sessionId: id).isEmpty { confirmViewing(id) }
                 scheduleFeedbackExpiration()
             } catch {
-                if Task.isCancelled { break }
+                if Task.isCancelled || generation != pollGeneration { break }
+                consecutiveFailures += 1
                 if error is StoreError { cursor = -1; cursorEpoch = "" }
-                connected = false; clientConnected = false
-                connectionLabel = integrationEnabled ? "等待 DSH 连接" : "集成尚未启用"
+                if consecutiveFailures >= 3 { connected = false; clientConnected = false }
+                connectionLabel = integrationEnabled ? "正在重新连接 DSH…" : "集成尚未启用"
                 if case AppFailure.message(let message) = error { connectionLabel = message }
                 if error is StoreError { connectionLabel = "状态正在重新同步" }
                 if reminderRetention != .untilOpened {
@@ -428,29 +528,46 @@ struct Endpoint: Codable {
         catch { feedback = "提醒记录保存失败，重启后的恢复可能受影响。" }
     }
     private func updatePresentation() {
-        NSApp.dockTile.badgeLabel = mode == .native && store.unreadCount > 0 ? String(store.unreadCount) : nil
+        NSApp.dockTile.badgeLabel = nil
         objectWillChange.send(); petController?.update()
     }
     private func present(_ notice: Notice) {
-        guard let mode else { return }
-        // A genuine reminder always takes presentation priority over an animation test.
+        guard mode == .pet else { return }
         animationPreview.end(); bubblePreviewEnabled = false
-        if mode == .pet && dismissedFeedbackIDs.contains(notice.id) { return }
-        if mode == .pet && !petSpaceVisible {
-            dismissedFeedbackIDs.insert(notice.id); preferences.set(Array(dismissedFeedbackIDs), forKey: "dismissedFeedbackIDs"); updatePresentation(); return
+        if dismissedFeedbackIDs.contains(notice.id) { return }
+        if !petSpaceVisible && fullScreenPolicy == .hidden {
+            dismissedFeedbackIDs.insert(notice.id); preferences.set(Array(dismissedFeedbackIDs), forKey: "dismissedFeedbackIDs")
+            updatePresentation(); return
         }
-        if mode == .native {
-            guard !previewOnly else { return }
-            let content = UNMutableNotificationContent(); content.title = notice.title; content.body = notice.summary; content.sound = .default
-            content.userInfo = ["sessionId": notice.sessionId, "instanceId": notice.instanceId]
-            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: notice.id, content: content, trigger: nil))
-        } else {
-            reminderQueue.enqueue(notice, retention: reminderRetention, now: now)
-            syncBubble()
+        reminderQueue.enqueue(notice, retention: reminderRetention, now: now); syncBubble()
+    }
+    private func presentForeground(_ notice: Notice) {
+        guard mode == .pet else { return }
+        if foregroundStyle == .silent || (!petSpaceVisible && fullScreenPolicy == .hidden) {
+            dismissedFeedbackIDs.insert(notice.id)
+            preferences.set(Array(dismissedFeedbackIDs), forKey: "dismissedFeedbackIDs")
+            return
         }
+        foregroundFeedback = notice; scheduleForegroundExpiration(notice)
+        if foregroundStyle.showsBubble(state: notice.state) {
+            reminderQueue.enqueue(notice, retention: reminderRetention, now: now); syncBubble()
+        }
+        updatePresentation()
+    }
+    private func scheduleForegroundExpiration(_ notice: Notice) {
+        foregroundFeedbackTask?.cancel()
+        if let delay = reminderRetention.seconds { foregroundFeedbackTask = Task {
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, foregroundFeedback?.id == notice.id else { return }
+            foregroundFeedback = nil; updatePresentation()
+        } }
     }
     private func reconcileResolved() {
         let resolved = Set(store.notices.filter(\.resolved).map(\.id))
+        if let notice = foregroundFeedback,
+           resolved.contains(notice.id) || store.sessions[notice.sessionId]?.runId != notice.runId {
+            foregroundFeedbackTask?.cancel(); foregroundFeedback = nil
+        }
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: Array(resolved))
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: Array(resolved))
         removeBubbles(ids: resolved)
@@ -469,6 +586,9 @@ struct Endpoint: Codable {
         }
     }
     private func removeBubbles(ids: Set<String>) {
+        if let notice = foregroundFeedback, ids.contains(notice.id) {
+            foregroundFeedbackTask?.cancel(); foregroundFeedback = nil
+        }
         reminderQueue.remove(ids: ids, now: now); syncBubble()
     }
     func dismissBubble(id: String) {
@@ -490,6 +610,51 @@ struct Endpoint: Codable {
         }
     }
     #if DEBUG
+    static func validateProduct() throws {
+        let suite = "DSHAlwaysOn.ProductValidation.\(UUID().uuidString)", preferences = UserDefaults(suiteName: suite)!
+        defer { preferences.removePersistentDomain(forName: suite) }
+        preferences.set("native", forKey: "notificationMode")
+        let model = Coordinator(preferences: preferences, previewOnly: true)
+        defer { model.stop() }
+        func check(_ result: Bool, _ reason: String) throws { if !result { throw AppFailure.message(reason) } }
+        try check(model.mode == .pet && preferences.string(forKey: "notificationMode") == "pet", "旧模式迁移失败")
+        model.start()
+        try check(NSApp.activationPolicy() == .accessory && NSApp.dockTile.badgeLabel == nil, "Dock 隐藏失败")
+        model.previewRetention()
+        let unread = model.store.unreadCount, notice = model.store.notices.last!
+        model.dismissBubble(id: notice.id)
+        model.presentForeground(notice)
+        try check(model.foregroundFeedback?.id == notice.id && model.visibleBubble == nil, "当前完成应只播放动作")
+        model.mode = .companion
+        try check(model.store.unreadCount == unread && model.visibleBubble == nil && model.taskState == .idle, "模式切换丢失未读或保留任务展示")
+        model.route(notice)
+        try check(model.visibleBubble == nil && model.foregroundFeedback == nil, "纯桌宠接受了任务通知")
+        model.setAnimationPreview(true)
+        for animation in PetAnimation.allCases {
+            model.selectPreviewAnimation(animation)
+            try check(model.visibleBubble?.state == PreviewBubble.kind(for: animation, waiting: model.bubblePreviewKind)?.state, "联合预览气泡错误")
+            try check(model.store.unreadCount == unread, "联合预览产生未读")
+        }
+        model.setSuspended(true, reason: "screen"); model.setSuspended(true, reason: "session")
+        model.setSuspended(false, reason: "screen")
+        try check(model.suspended && !model.animationPreview.enabled, "部分唤醒提前恢复")
+        model.setSuspended(false, reason: "session")
+        try check(!model.suspended && model.store.unreadCount == unread, "唤醒丢失未读")
+        model.mode = .pet; model.foregroundStyle = .bubble
+        model.presentForeground(notice)
+        try check(model.visibleBubble?.id == notice.id, "动作和气泡选项未生效")
+        model.closePetFeedback(); model.foregroundStyle = .silent; model.presentForeground(notice)
+        try check(model.visibleBubble == nil && model.foregroundFeedback == nil && model.store.unreadCount == unread, "静默误清未读或仍有反馈")
+        model.foregroundStyle = .actionOnly
+        model.presentForeground(BubblePreviewKind.approval.notice)
+        try check(model.visibleBubble?.state == .waiting, "默认待处理提醒缺少气泡")
+        model.closePetFeedback(); model.fullScreenPolicy = .hidden; model.setPetSpaceVisible(false)
+        model.presentForeground(notice)
+        try check(model.visibleBubble == nil && model.foregroundFeedback == nil, "完全隐藏时前台反馈重新排入")
+        model.setPetSpaceVisible(true)
+        try check(model.visibleBubble == nil && model.store.unreadCount == unread, "返回桌面补弹或丢失未读")
+        print("Product validation: migration, hidden Dock, pure isolation, combined preview, wake reasons, unread and foreground choices passed")
+    }
     var showFullScreenFixture: () -> Void = {}
     func previewRetention(state: TaskState = .success, session: String = "preview-a") {
         guard previewOnly else { return }
@@ -540,14 +705,6 @@ struct Endpoint: Codable {
         syncBubble(); petController?.focusPreview()
     }
     #endif
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        await MainActor.run { self.mode == .native ? [.banner, .sound] : [] }
-    }
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let id = response.notification.request.content.userInfo["sessionId"] as? String,
-              let instance = response.notification.request.content.userInfo["instanceId"] as? String else { return }
-        await MainActor.run { if instance == self.store.instanceId { self.openSession(id) } }
-    }
     private func readable(_ error: Error) -> String {
         if case AppFailure.message(let message) = error { return message }
         if error is IntegrationPatch.PatchError { return "DSH 配置格式或集成标记存在冲突，原配置已保留。请检查后重试。" }

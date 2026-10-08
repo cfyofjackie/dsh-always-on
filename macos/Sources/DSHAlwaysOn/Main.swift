@@ -27,6 +27,12 @@ import CompanionCore
             return
         }
         #if DEBUG
+        if CommandLine.arguments.contains("--validate-product") {
+            _ = NSApplication.shared
+            do { try Coordinator.validateProduct() }
+            catch { fputs("Product validation failed: \(error)\n", stderr); exit(EXIT_FAILURE) }
+            return
+        }
         if let index = CommandLine.arguments.firstIndex(of: "--validate-life-preview"), CommandLine.arguments.count > index + 1 {
             _ = NSApplication.shared
             do { try LifePreviewValidation.run(to: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)) }
@@ -143,18 +149,19 @@ import CompanionCore
         model.beginBubblePreview(); model.previewRetention()
         try check(!model.bubblePreviewEnabled && model.bubble?.instanceId == "retention-preview" && model.store.notices.last?.state == .success, "真实提醒未接管预览")
         let unread = model.store.unreadCount
+        model.fullScreenPolicy = .hidden
         model.setPetSpaceVisible(false)
         try check(model.bubble == nil && model.store.unreadCount == unread, "隐藏更改未读")
         model.previewRetention(state: .error)
         try check(model.bubble == nil && model.store.unreadCount > 0, "隐藏时新提醒丢失或弹出")
         model.setPetSpaceVisible(true); try check(model.bubble == nil, "返回补弹了旧提醒")
-        model.showInFullScreen = true; model.bubbleStyle = .glass
+        model.fullScreenPolicy = .always; model.bubbleStyle = .glass
         let restored = Coordinator(preferences: preferences, previewOnly: true)
         defer { restored.stop() }
-        try check(restored.showInFullScreen && restored.bubbleStyle == .glass && !restored.bubblePreviewEnabled, "设置或预览恢复错误")
+        try check(restored.fullScreenPolicy == .always && restored.bubbleStyle == .glass && !restored.bubblePreviewEnabled, "设置或预览恢复错误")
         model.openSession("preview-b")
         try check(model.store.sessions["preview-b"]?.state == .waiting && model.store.unreadIDs(sessionId: "preview-b").isEmpty, "查看误处理了等待")
-        model.beginBubblePreview(); model.mode = .native
+        model.beginBubblePreview(); model.mode = .companion
         try check(!model.bubblePreviewEnabled, "模式切换保留了测试")
         model.mode = .pet
         for dark in [false, true] {
@@ -217,7 +224,7 @@ struct RetentionPreviewView: View {
                 Button("另一会话等待") { model.previewRetention(state: .waiting, session: "preview-b") }
                 Button("检查设置恢复") {
                     let restored = Coordinator(preferences: preferences, previewOnly: true)
-                    model.feedback = "重载设置：\(restored.reminderRetention.label) · \(restored.bubbleStyle.label) · 全屏\(restored.showInFullScreen ? "显示" : "隐藏") · 动画测试\(restored.animationPreview.enabled ? "开启" : "关闭")"
+                    model.feedback = "重载设置：\(restored.reminderRetention.label) · \(restored.bubbleStyle.label) · 全屏\(restored.fullScreenPolicy.label) · 动画测试\(restored.animationPreview.enabled ? "开启" : "关闭")"
                 }
                 Button("全屏隔离测试") { model.showFullScreenFixture() }
                 Toggle("深色预览", isOn: $darkPreview)
@@ -225,7 +232,7 @@ struct RetentionPreviewView: View {
             Text("当前动作：\(model.displayedTaskState.label) · 当前气泡：\(model.visibleBubble?.summary ?? "已收起")")
                 .font(.caption)
             if let notice = model.visibleBubble {
-                BubbleView(model: model, notice: notice, isPreview: model.bubblePreviewEnabled).environment(\.colorScheme, darkPreview ? .dark : .light)
+                BubbleView(model: model, notice: notice, isPreview: model.isBubblePreview).environment(\.colorScheme, darkPreview ? .dark : .light)
             }
             MainView(model: model)
         }
@@ -238,8 +245,11 @@ struct FullScreenPreviewView: View {
         VStack(spacing: 24) {
             Text("全屏隔离测试").font(.largeTitle)
             Text("桌宠在当前空间：\(model.petSpaceVisible ? "显示" : "隐藏") · 未读：\(model.store.unreadCount)")
-            Toggle("全屏时显示桌宠", isOn: $model.showInFullScreen).frame(width: 240)
+            Picker("全屏显示", selection: $model.fullScreenPolicy) {
+                ForEach(FullScreenPolicy.allCases, id: \.self) { Text($0.label).tag($0) }
+            }.frame(width: 400)
             Button("生成全屏提醒") { model.previewRetention() }
+            Button("收起提醒（模拟回到 DSH）") { if let bubble = model.bubble { model.openSession(bubble.sessionId) } }
             Text("通过窗口的绿色按钮退出全屏；回到设置后，旧提醒不应补弹。")
         }.frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.blue.opacity(0.08))
     }
@@ -315,19 +325,19 @@ struct CharacterPreviewView: View {
         let statusMenu = NSMenu()
         statusMenu.addItem(withTitle: "会话与设置…", action: #selector(showWindow), keyEquivalent: "")
         statusMenu.addItem(.separator())
-        statusMenu.addItem(withTitle: "原生通知", action: #selector(nativeMode), keyEquivalent: "")
-        statusMenu.addItem(withTitle: "桌面伙伴", action: #selector(petMode), keyEquivalent: "")
+        statusMenu.addItem(withTitle: "纯桌宠陪伴", action: #selector(companionMode), keyEquivalent: "")
+        statusMenu.addItem(withTitle: "任务通知伙伴", action: #selector(petMode), keyEquivalent: "")
         statusMenu.addItem(.separator()); statusMenu.addItem(withTitle: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         statusItem.menu = statusMenu
         model.start()
         #if DEBUG
         showWindow()
         #else
-        if model.mode == nil || !model.integrationEnabled { showWindow() }
+        if model.mode == .pet && !model.integrationEnabled { showWindow() }
         #endif
     }
     @objc func showWindow() { mainWindow.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
-    @objc func nativeMode() { model.mode = .native }
+    @objc func companionMode() { model.mode = .companion }
     @objc func petMode() { model.mode = .pet }
     @objc func toggleTop() { model.alwaysOnTop.toggle() }
     #if DEBUG

@@ -8,7 +8,9 @@ cp -R "$task_app" "$task_stage/DSH Always On.app"
 ln -s /Applications "$task_stage/Applications"
 cp "$task_root/docs/使用说明.md" "$task_stage/使用说明.md"
 # Keep each generated installer; never replace a pre-existing distribution artifact.
-task_image="$task_root/dist/DSH-Always-On-0.1.0-arm64-$(date +%Y%m%d-%H%M%S).dmg"
+task_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$task_app/Contents/Info.plist")
+[[ "$task_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { printf 'Invalid App version\n' >&2; exit 1; }
+task_image="$task_root/dist/DSH-Always-On-$task_version-arm64-$(date +%Y%m%d-%H%M%S).dmg"
 hdiutil create -quiet -volname 'DSH Always On' -srcfolder "$task_stage" -format UDZO "$task_image"
 hdiutil verify "$task_image"
 printf 'Built: %s\n' "$task_image"

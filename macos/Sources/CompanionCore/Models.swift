@@ -7,8 +7,10 @@ public enum TaskState: String, Codable, CaseIterable, Sendable {
     }
 }
 public enum NotificationMode: String, Codable, CaseIterable, Sendable {
-    case native, pet
-    public var label: String { self == .native ? "原生通知" : "桌面伙伴" }
+    case pet, companion
+    public var label: String { self == .pet ? "任务通知伙伴" : "纯桌宠陪伴" }
+    /// Old Native preferences become the task partner; no reminder data is migrated or deleted.
+    public static func saved(_ raw: String?) -> Self { raw.flatMap(Self.init(rawValue:)) ?? .pet }
 }
 public struct WaitItem: Codable, Equatable, Sendable {
     public var actionId: String

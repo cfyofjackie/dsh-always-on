@@ -72,12 +72,15 @@ export function apply(ctx: ClientContext): void {
       finally { viewing = false; }
     };
     const viewTimer = setInterval(() => { void reportViewing(); }, 600);
-    window.addEventListener('focus', reportViewing); window.addEventListener('blur', reportViewing);
-    document.addEventListener('visibilitychange', reportViewing);
+    const resume = () => { void report(); void reportViewing(); };
+    window.addEventListener('focus', resume); window.addEventListener('pageshow', resume); window.addEventListener('online', resume);
+    window.addEventListener('blur', reportViewing);
+    document.addEventListener('visibilitychange', resume);
     void report(); void reportViewing(); void loop(); return () => {
       lifetime.abort(); unsubscribe(); clearInterval(viewTimer);
-      window.removeEventListener('focus', reportViewing); window.removeEventListener('blur', reportViewing);
-      document.removeEventListener('visibilitychange', reportViewing);
+      window.removeEventListener('focus', resume); window.removeEventListener('pageshow', resume); window.removeEventListener('online', resume);
+      window.removeEventListener('blur', reportViewing);
+      document.removeEventListener('visibilitychange', resume);
     };
   }, 'always-on: exact session navigation');
 }

@@ -1,9 +1,9 @@
 # DSH Always On 技术架构
 
-更新日期：2026-10-04  
+更新日期：2026-10-08
 状态：V0.1 本机试用实现；真实全场景和发布验收见 [VALIDATION.md](VALIDATION.md)
 
-本文的结构与渠道表描述当前实现。2026-10-03 已确定 [通知与已读修改方案](通知与已读修改方案.md)：两种模式隐藏伴侣 Dock 图标，角标交由 DSH client 呈现在 DSH 本体，并增加实际查看反馈与权威未读计数下发。其中实际查看反馈已于本轮接入，DSH 本体角标 / 两模式隐藏伴侣 Dock 尚未接入；不把当前智能提醒工作等同于整份旧方案完成。
+当前为任务通知伙伴 / 纯桌宠陪伴；2026-10-08 用户确认移除系统任务通知与 DSH 本体角标目标。旧方案留存历史，不作为当前范围。源码 / 隔离检查与实机验收边界见 [本轮清单](tasks/2026-10-08-桌宠双用途与提醒可靠性.md)。
 
 ## 1. 实际结构
 
@@ -21,8 +21,8 @@ Swift macOS App
   ├─ Integration Manager：启用、更新、移除受管理集成
   ├─ Coordinator：鉴权长轮询、持久化、通知分发与跳转
   ├─ CompanionCore：顺序校验、去重、未读与角色优先级
-  ├─ Native：UserNotifications + 自己的 Dock 角标
-  ├─ Pet：AppKit 透明窗口 + SwiftUI 图片与气泡
+  ├─ 任务伙伴：AppKit 透明窗口 + SwiftUI 动作 / 气泡
+  ├─ 纯桌宠：独立 CompanionPlayback 随机 / 固定动作，无任务路由
   └─ 会话列表、菜单栏与设置
 ```
 
@@ -62,24 +62,26 @@ App→host：`GET /poll`、`POST /open`、`GET /view-state`、`POST /view`。DSH
 
 `dsh://open` 只负责唤起 DSH。精确跳转通过 client 的 `uiWorkspace.openSession(sessionId)`，再检查该 ID 确实由 mainView 保留、历史加载 `openState === open` 且未删除。仅唤起窗口或发送请求不算成功。
 
-`/open` 的结果必须关联原 `requestId`，host 7 秒超时返回未确认，App 请求上限 10 秒。只有确认打开时才标记点击瞬间已有的提醒为已读；点击过程中到达的新提醒保留，失败也保留未读。系统通知、气泡、角色与会话列表共用同一 Router。
+`/open` 的结果必须关联原 `requestId`，host 7 秒超时返回未确认，App 请求上限 10 秒。只有确认打开时才标记点击瞬间已有的提醒为已读；点击过程中到达的新提醒保留，失败也保留未读。气泡、角色与会话列表共用同一 Router；纯桌宠点击只打开设置。
 
 ## 5. 本地存储与渠道
 
 私有 `state.json` 原子保存会话、提醒、已读、已处理、来源周期、游标与去重记录。系统偏好保存模式、配置目录、置顶与桌宠位置。只保存标题与简短提醒，不复制完整对话或工具输出。
 
-去重包括事件 ID、同一 run 的终结语义以及同一等待 actionId。角标按存在未读的会话计数。已读与等待解除独立：查看问题可清除未读，但 waiting 保留至 DSH 真实处理。
+去重包括事件 ID、同一 run 的终结语义以及同一等待 actionId。列表按存在未读的会话计数，不向任一 Dock 写角标。已读与等待解除独立：查看问题可清除未读，但 waiting 保留至 DSH 真实处理。
 
 已处理且已读提醒保留最多 7 天 / 500 条；未读和仍待处理的等待不通过普通历史清理丢弃。去重事件 ID 保留最多 2000 条。
 
-| 渠道 | Native | Pet |
+| 渠道 | 任务伙伴 | 纯桌宠 |
 | --- | --- | --- |
-| 系统通知 | 开 | 关 |
-| 本 App Dock 角标 | 开 | 关 |
-| 桌宠 | 关 | 开 |
-| 气泡 | 关 | 开 |
+| 系统任务通知 / Dock | 关闭 | 关闭 |
+| 任务轮询 / 未读列表 | 开启 | 暂停轮询，隐藏列表，历史保留 |
+| 桌宠 | 真实状态与待机生活 | 九动作随机 / 固定表演 |
+| 气泡 | 真实提醒；支持测试 | 仅手动测试样例 |
 
-UI 只暴露两个预设，渠道在 Coordinator 内统一分发。Native 使用普通应用策略，Pet 使用菜单栏应用策略。切换清除本 App 旧系统通知与气泡队列，保留未读，不补发历史提醒。
+两用途都使用 `.accessory` 和 `LSUIElement`，保留菜单栏。旧 `native` / `pet` 偏好迁移到 `pet`，新陪伴值为 `companion`。首次新版本启动只清理本 App 旧 UserNotifications，不申请权限；模块仅保留旧通知清理调用。
+
+切换时失效模式 / 前台代数、停止旧轮询、清除展示而保留 SessionStore 与集成配置。返回任务伙伴重新请求基线，不补弹纯桌宠期间事件；初次启动和睡眠恢复使用保存游标，来源周期改变时重新同步。异步轮询 / 查看 / 打开结果均校验代数与来源周期，打开会话只清捕获的提醒 ID。
 
 ## 6. 桌宠与原生 UI
 
@@ -91,11 +93,11 @@ SwiftUI 设置界面；AppKit 管理角色与气泡两个透明、无边框窗�
 
 设置的 `AnimationPreview` 是不持久化的展示覆盖，只控制 `displayedTaskState`，隐藏真实气泡而不修改私有存储、未读或计时。手动退出恢复最新真实状态；真实提醒进入 `present` 时结束测试，模式切换也结束。设置小预览与桌宠共用 `CharacterView`；`CharacterPlaybackClock` 保存动作相位并排除暂停时间，状态变化从首帧开始。Debug 独立预览还隔离位置偏好，不写用户真实桌宠位置。
 
-角色优先级：waiting > 近期 error > 近期 success > working > idle。离线显示 idle 和独立“未连接”文字。按实验室动作节奏逐帧播放，以单调时间定位帧，延迟时跳过已过期帧；系统减少动态效果使用静态帧，Native 隐藏与系统睡眠停止动画。右键菜单可查看会话、切换模式与退出。
+角色优先级：waiting > 近期 error > 近期 success > working > idle。离线显示 idle 和独立“未连接”文字。按实验室动作节奏逐帧播放，以单调时间定位帧，延迟时跳过已过期帧；系统减少动态效果使用静态帧，窗口隐藏与系统睡眠停止动画。右键菜单可查看会话、切换模式与退出。
 
 拖动采用 AppKit 事件跟踪；16 pt 边缘吸附。保存显示器标识与归一化位置；屏幕变化时回退至可见屏幕并夹取位置。点击区域使用同一标准画布全部姿态的 alpha 轮廓并集与状态文字区域，减少手 / 发梢运动造成的点击抖动，透明角落透传。不同 Spaces、独占全屏和多显示器仍需实机验证。
 
-开机启动通过 `SMAppService`，默认关闭，由用户自行启用。Native 通知权限在选择该模式后向系统申请，App 显示权限状态与系统设置入口。
+开机启动通过 `SMAppService`，默认关闭，由用户自行启用；不申请系统通知权限。监听 NSWorkspace 睡眠 / 屏幕休眠 / 会话切换与对应恢复，用原因集合避免部分唤醒提前恢复。暂停时取消旧连接；恢复时创建新 URLSession 并重读端点，保留游标与未读，连续三次连接失败才显示离线。client 的 focus / pageshow / online / visibilitychange 重新发送等待基线和查看反馈；无需等待命令长轮询返回。
 
 ## 7. 构建与交付
 
@@ -105,12 +107,18 @@ SwiftUI 设置界面；AppKit 管理角色与气泡两个透明、无边框窗�
 
 ## 本轮智能提醒与外观扩展（2026-10-04）
 
-client 每 600 ms 及 focus / blur / visibilitychange 上报当前会话、会话面板是否可见、窗口焦点与加载状态。host 使用自己的时间戳，仅语义变化唤醒事件长轮询。原生端同时验证前台应用 bundle ID；前台时每约 900 ms 读取 `/view-state`，反馈超过 2500 ms 不采用。
+client 每 600 ms 及 focus / blur / pageshow / online / visibilitychange 上报当前会话、会话面板是否可见、窗口焦点与加载状态。host 使用自己的时间戳，仅语义变化唤醒事件长轮询。原生端同时验证前台应用 bundle ID；前台时每约 900 ms 读取 `/view-state`，反馈超过 2500 ms 不采用。
 
 每次查看探针捕获 App 当前未读 ID 集合、实例、周期与 throughSequence；client 只对唯一 mainView、会话面板、已加载且有焦点的内容确认，连续两次动画帧后重新核对。终结反馈要求展示投影已停止执行且无等待，waiting 要匹配具体交互类型。host 2400 ms 超时，原生请求 4 秒上限。查看结果需精确匹配捕获边界，并且原生前台切换代数、来源周期保持；只标记捕获 ID，新提醒继续走独立确认。查看接口与旧 `/open` 命令队列分离，不导航、不回答 / 批准。未确认时保留正常提醒并退避 5 秒后再试，重试不反复隐藏已呈现反馈；切换前台或目标会话时取消退避。
 
-进入 DSH 只收起 Pet 展示，未读不变；已确认显示才撤回相应 Native 通知并更新同一 SessionStore。全屏选项通过 `.fullScreenAuxiliary` 的启用 / 移除、`.fullScreenNone` 和桌宠窗口自身 `isOnActiveSpace` 管理，400 ms 检查窗口 Space；不依靠覆盖程度、屏幕尺寸或全局最大化猜测，不要求屏幕录制 / 辅助功能权限。隐藏会清掉当前气泡队列和结果展示，保留未读；真实系统 / 视频全屏和多显示器仍待实测。实现参考 [Apple fullScreenAuxiliary](https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct/fullscreenauxiliary)、[isOnActiveSpace](https://developer.apple.com/documentation/appkit/nswindow/isonactivespace)。
+进入 DSH 收起已有展示，未读不变；已确认显示才标记固定边界已读。新事件优先使用新鲜 `/view-state`，避免长轮询返回旧界面状态时误弹。foregroundFeedback 独立于已读存储：默认完成仅动作，失败 / 等待仍气泡，可选择动作和气泡 / 静默；呈现偏好不代表确认已读。未获得精确确认时保留未读。
 
-`BubbleStyle` 为独立持久化外观，`BubblePreviewKind` 提供五类固定、已读的测试样例。桌面气泡测试只覆盖展示，不写事件历史，不跑真实期限；与动作测试互斥，真实提醒到来、模式切换或进入 DSH 时退出。两款外观复用同一轮廓、命中与固定 session 跳转。
+全屏策略由 FullScreenPolicy 管理。角色 / 气泡均具有 `.fullScreenAuxiliary`；独立、透明、忽略鼠标的普通 Space 探针带 `.canJoinAllSpaces` / `.fullScreenNone`，400 ms 查看其 `isOnActiveSpace`。探针不随着提醒 orderFront，避免使用已进入全屏的角色窗口本身造成“返回视频仍常驻”。完全隐藏时两窗口 orderOut，清展示而不清未读；仅提醒出现时由气泡 / 前台反馈 / 手动预览决定可见。无辅助功能 / 屏幕录制权限，无视频应用猜测；同 Space 视频不能自动分类，真实 Space / 多屏仍待验收。参考 [Apple fullScreenAuxiliary](https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct/fullscreenauxiliary)、[isOnActiveSpace](https://developer.apple.com/documentation/appkit/nswindow/isonactivespace)。
+
+CompanionPlayback 不读取 SessionStore，随机候选排除上一次，生活动作按原完整周期播放，持续任务动作至少停留8秒；支持固定动作。隐藏 / 睡眠时停止并重置，减少动态效果使用固定动作或 idle 静态图，不补播。pure UI 文案明确“陪伴”，工作 / 失败只作表演。
+
+`BubbleStyle` 为独立持久化外观，`BubblePreviewKind` 提供五类固定、已读的测试样例。桌面气泡测试只覆盖展示，不写事件历史，不跑真实期限；独立气泡测试与动作测试互斥；动作联合预览按 PreviewBubble 匹配 success / error / waiting，其他动作无气泡。真实提醒到来、模式切换、睡眠或进入 DSH 时退出。两款外观复用同一轮廓、命中与固定 session 跳转。
 
 App 图标由现有 idle 形象与原生蓝白背景组合，`--export-brand` 导出完整 AppIcon / DSMenuIcon asset；`--export-art` 的图标导出也使用同一组合，同步脚本未改。菜单栏使用 18 pt 模板头像，保留原菜单处理器。旧图标在 `docs/icon-preview/legacy-2026-10-04/`。角色播放器、生产帧与另一会话动画页面没有改动。
+
+本地 App 版本 0.2.0 / build 20261008.1；DMG 文件名从实际 bundle 读取版本，构建保留旧 dist App。已安装旧版图标不靠清系统缓存替换；用户安装新 App 后使用菜单栏入口，设置底部核对版本。

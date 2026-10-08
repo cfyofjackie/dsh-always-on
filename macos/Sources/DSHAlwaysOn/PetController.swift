@@ -11,6 +11,8 @@ import CompanionCore
     private var dragged = false
     private var displayedNoticeID: String?
     private var spaceTask: Task<Void, Never>?
+    private var spaceProbe: NSPanel?
+    private var probeScreen: NSScreen?
     init(model: Coordinator) {
         self.model = model
         pet = NSPanel(contentRect: NSRect(x: 0, y: 0, width: CharacterArtwork.size, height: 240), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -30,7 +32,7 @@ import CompanionCore
             let menu = NSMenu()
             menu.addItem(withTitle: "查看会话与设置…", action: #selector(AppDelegate.showWindow), keyEquivalent: "")
             let top = NSMenuItem(title: "总在最上层", action: #selector(AppDelegate.toggleTop), keyEquivalent: ""); top.state = model?.alwaysOnTop == true ? .on : .off; menu.addItem(top)
-            menu.addItem(withTitle: "切换到原生通知", action: #selector(AppDelegate.nativeMode), keyEquivalent: "")
+            menu.addItem(withTitle: model?.mode == .companion ? "切换到任务通知伙伴" : "切换到纯桌宠陪伴", action: model?.mode == .companion ? #selector(AppDelegate.petMode) : #selector(AppDelegate.companionMode), keyEquivalent: "")
             menu.addItem(.separator()); menu.addItem(withTitle: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
             return menu
         }
@@ -54,29 +56,43 @@ import CompanionCore
     func update() {
         let level: NSWindow.Level = model.alwaysOnTop ? .floating : .normal
         pet.level = level; speech.level = level
-        let behavior: NSWindow.CollectionBehavior = model.showInFullScreen ? [.canJoinAllSpaces, .fullScreenAuxiliary] : [.canJoinAllSpaces, .fullScreenNone]
-        pet.collectionBehavior = behavior; speech.collectionBehavior = behavior
-        if model.mode == .pet {
-            pet.orderFrontRegardless()
+        // This independent normal-space probe is never brought forward with a reminder.
+        // Using the pet's membership made returning from an opened session sticky.
+        ensureSpaceProbe()
+        let fullScreen = spaceProbe.map { !$0.isOnActiveSpace } ?? false
+        let visible = !model.suspended && model.fullScreenPolicy.visible(fullScreen: fullScreen, hasFeedback: model.hasPresentationFeedback)
+        model.setPetSpaceVisible(visible)
+        if model.mode != nil && visible {
+            if !pet.isVisible || !pet.isOnActiveSpace { pet.orderFrontRegardless() }
             if let notice = model.visibleBubble {
                 // Keep a displayed notice bound to its own session throughout a click.
                 // Polling and portrait updates must not replace the hosting view mid-gesture.
                 if displayedNoticeID != notice.id {
-                    speech.contentView = FirstClickHostingView(rootView: BubbleView(model: model, notice: notice, isPreview: model.bubblePreviewEnabled))
+                    speech.contentView = FirstClickHostingView(rootView: BubbleView(model: model, notice: notice, isPreview: model.isBubblePreview))
                     displayedNoticeID = notice.id
                 }
-                positionBubble(); if model.petSpaceVisible { speech.orderFrontRegardless() } else { speech.orderOut(nil) }
+                positionBubble()
+                if model.petSpaceVisible {
+                    if !speech.isVisible || !speech.isOnActiveSpace { speech.orderFrontRegardless() }
+                } else { speech.orderOut(nil) }
             } else { speech.orderOut(nil); displayedNoticeID = nil }
             updateMouseRegion()
         } else { pet.orderOut(nil); speech.orderOut(nil) }
     }
-    private func checkSpace() {
-        guard model.mode == .pet else { return }
-        // Space membership is local to this pet window, unlike global fullscreen guesses.
-        let visible = model.showInFullScreen || pet.isOnActiveSpace
-        model.setPetSpaceVisible(visible)
-        if !visible { speech.orderOut(nil) }
+    private func ensureSpaceProbe() {
+        guard let target = NSScreen.screens.first(where: { $0.frame.intersects(pet.frame) }) ?? NSScreen.main else { return }
+        if spaceProbe != nil && probeScreen === target { return }
+        spaceProbe?.orderOut(nil)
+        let probe = NSPanel(contentRect: NSRect(x: target.frame.minX + 4, y: target.frame.minY + 4, width: 2, height: 2),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        probe.isOpaque = false; probe.backgroundColor = .clear; probe.alphaValue = 0.01
+        probe.ignoresMouseEvents = true; probe.hidesOnDeactivate = false; probe.isReleasedWhenClosed = false
+        probe.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+        probe.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenNone, .ignoresCycle]
+        probe.orderBack(nil)
+        spaceProbe = probe; probeScreen = target
     }
+    private func checkSpace() { update() }
     private var screen: NSScreen { NSScreen.screens.first(where: { $0.frame.intersects(pet.frame) }) ?? NSScreen.main ?? NSScreen.screens[0] }
     private func restorePosition() {
         guard let main = NSScreen.main ?? NSScreen.screens.first else { return }

@@ -431,3 +431,74 @@ final class PetLifeAnimationTests: XCTestCase {
         XCTAssertFalse(AnimationPreview().enabled)
     }
 }
+
+final class PetProductTests: XCTestCase {
+    func testLegacyNativeAndPetMigrateWithoutAddingAThirdMode() {
+        XCTAssertEqual(NotificationMode.saved("native"), .pet)
+        XCTAssertEqual(NotificationMode.saved("pet"), .pet)
+        XCTAssertEqual(NotificationMode.saved(nil), .pet)
+        XCTAssertEqual(NotificationMode.saved("invalid"), .pet)
+        XCTAssertEqual(NotificationMode.saved("companion"), .companion)
+        XCTAssertEqual(NotificationMode.allCases, [.pet, .companion])
+    }
+    func testFullScreenDefaultsAndLegacyChoicesRemainExplicit() {
+        XCTAssertEqual(FullScreenPolicy.saved(nil, legacy: nil, mode: .pet), .remindersOnly)
+        XCTAssertEqual(FullScreenPolicy.saved(nil, legacy: nil, mode: .companion), .always)
+        XCTAssertEqual(FullScreenPolicy.saved(nil, legacy: false, mode: .pet), .hidden)
+        XCTAssertEqual(FullScreenPolicy.saved(nil, legacy: true, mode: .pet), .always)
+        XCTAssertEqual(FullScreenPolicy.saved("remindersOnly", legacy: false, mode: .pet), .remindersOnly)
+    }
+    func testFullScreenReminderEndsAfterOpeningAndHidesAgainOnReturn() {
+        let policy = FullScreenPolicy.remindersOnly
+        XCTAssertFalse(policy.visible(fullScreen: true, hasFeedback: false))
+        XCTAssertTrue(policy.visible(fullScreen: true, hasFeedback: true))
+        XCTAssertTrue(policy.visible(fullScreen: false, hasFeedback: false))
+        XCTAssertFalse(policy.visible(fullScreen: true, hasFeedback: false))
+        XCTAssertFalse(FullScreenPolicy.hidden.visible(fullScreen: true, hasFeedback: true))
+        XCTAssertTrue(FullScreenPolicy.always.visible(fullScreen: true, hasFeedback: false))
+    }
+    func testForegroundCompletionIsAnActionButProblemsKeepTheirBubble() {
+        XCTAssertFalse(ForegroundReminderStyle.actionOnly.showsBubble(state: .success))
+        for state in [TaskState.error, .waiting] {
+            XCTAssertTrue(ForegroundReminderStyle.actionOnly.showsBubble(state: state))
+            XCTAssertFalse(ForegroundReminderStyle.silent.showsBubble(state: state))
+        }
+        XCTAssertTrue(ForegroundReminderStyle.bubble.showsBubble(state: .success))
+    }
+    func testPureCompanionRotatesAcrossAllActionsWithoutConsecutiveDuplicates() {
+        var player = CompanionPlayback(), seen = Set<PetAnimation>()
+        for index in 0..<PetAnimation.allCases.count {
+            let wanted = PetAnimation.allCases[(index + 1) % PetAnimation.allCases.count]
+            let previous = player.animation
+            player.advance(now: Double(index * 10), fixed: nil, choose: { choices in
+                XCTAssertFalse(choices.contains(previous))
+                return wanted
+            }, cycle: { _ in 8 })
+            seen.insert(player.animation)
+        }
+        XCTAssertEqual(seen, Set(PetAnimation.allCases))
+    }
+    func testRotationHonorsLifeCycleAndFixedChoiceBeforeResumingRandom() {
+        var player = CompanionPlayback()
+        player.advance(now: 0, fixed: nil, choose: { _ in .rice }, cycle: { _ in 8 })
+        player.advance(now: 7.99, fixed: nil, choose: { _ in .error }, cycle: { _ in 8 })
+        XCTAssertEqual(player.animation, .rice)
+        player.advance(now: 8, fixed: nil, choose: { _ in .error }, cycle: { _ in 8 })
+        XCTAssertEqual(player.animation, .error)
+        player.advance(now: 9, fixed: .working, choose: { _ in .toy }, cycle: { _ in 8 })
+        player.advance(now: 100, fixed: .working, choose: { _ in .toy }, cycle: { _ in 8 })
+        XCTAssertEqual(player.animation, .working)
+        player.advance(now: 101, fixed: nil, choose: { _ in .toy }, cycle: { _ in 6 })
+        XCTAssertEqual(player.animation, .toy)
+        player.reset(); XCTAssertEqual(player.animation, .idle)
+    }
+    func testCombinedPreviewOnlyOffersBubblesForAppropriateActions() {
+        XCTAssertEqual(PreviewBubble.kind(for: .success, waiting: .approval), .success)
+        XCTAssertEqual(PreviewBubble.kind(for: .error, waiting: .question), .error)
+        XCTAssertEqual(PreviewBubble.kind(for: .waiting, waiting: .planReview), .planReview)
+        XCTAssertEqual(PreviewBubble.kind(for: .waiting, waiting: .success), .question)
+        for animation in [PetAnimation.idle, .working, .rice, .toy, .pet, .whale] {
+            XCTAssertNil(PreviewBubble.kind(for: animation, waiting: .approval))
+        }
+    }
+}
