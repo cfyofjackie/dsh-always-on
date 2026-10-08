@@ -1,7 +1,7 @@
 # DSH Always On 验证记录
 
 更新日期：2026-10-08
-交付性质：0.2.0试用发布准备；真实场景待验收，不等于稳定版
+交付性质：0.2.0公开试用版；真实场景待验收，不等于稳定版
 
 ## 现有功能复查与发布收尾（2026-10-08）
 
@@ -11,7 +11,8 @@
 - 当前Applications及DMG运行App均0.2.0 / 20261008.1，实际运行来自DMG；本轮没有替换或结束它们。前轮已安装0.1.0为历史记录。只读真实桥接baseline HTTP200、client在线、3会话；view-state HTTP404，管理host与新bundle不同，前台查看依赖更新集成并方便时重开DSH。未输出认证信息或会话内容。
 - CUA此次能读取DSH，但三次读取桌宠均native pipe closed，包括独立bundle ID的隔离App。仅结束并清本轮测试副本，不绕过失败工具控制UI、不停止真实App / DSH。跳转沿用既有实测和协议检查，此次未操作真实任务跳转、全屏、锁屏或多显示器，不能宣称现场通过。
 - 从120c3a2公开源快照独立构建App / DMG成功，不包含实验室或归档。严格签名、arm64、版本 / LSUIElement、44角色及3插件文件通过；只读挂载最终16.70MiB DMG，内部App与测试产物逐字节一致，包含使用说明和Applications链接，成功staging无遗留；只卸载本轮挂载，用户原DMG未动。
-- 最终附件`DSH-Always-On-0.2.0-arm64.dmg`，SHA-256为`f8ea1d7210e74c4c459aa216ada644eec31bc917777e906c726e19e465ed92c5`；本地`dist/release-0.2.0/`含DMG与SHA256SUMS。外部发布校验进行中；日志在`/tmp/dsh-release-*.log`及`dist/ReleaseValidation/`，不进入Git。
+- 最终附件`DSH-Always-On-0.2.0-arm64.dmg`，SHA-256为`f8ea1d7210e74c4c459aa216ada644eec31bc917777e906c726e19e465ed92c5`；本地`dist/release-0.2.0/`含DMG、SHA256SUMS及公开源TAR。新建构建 / 下载检查目录已清除，历史备份保留；日志在`/tmp/dsh-release-*.log`及`dist/ReleaseValidation/`，不进入Git。
+- 已推送main并发布[v0.2.0预发布](https://github.com/cfyofjackie/dsh-always-on/releases/tag/v0.2.0)，tag为120c3a2，发布后的main只增记录、运行代码与tag无差异。公开树134文件不含实验 / 归档 / 构建，新增历史130个blob范围与敏感模式检查通过。未登录重新下载DMG及校验文件，17513487字节与上述SHA一致，两个公开附件可访问；不以发布成功替代实机三项验收。
 
 ## 双用途与提醒可靠性（2026-10-08）
 
